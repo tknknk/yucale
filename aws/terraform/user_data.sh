@@ -60,7 +60,7 @@ services:
     image: ghcr.io/your-org/Yucale-frontend:latest
     restart: unless-stopped
     ports:
-      - "${APP_PORT}:3000"
+      - "$${APP_PORT}:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:3000/api
       - NODE_ENV=production
@@ -80,13 +80,13 @@ services:
       - "8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${DB_NAME}
-      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - ADMIN_EMAIL=${ADMIN_EMAIL}
-      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
-      - AWS_REGION=${AWS_REGION}
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/$${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=$${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=$${DB_PASSWORD}
+      - ADMIN_EMAIL=$${ADMIN_EMAIL}
+      - DISCORD_WEBHOOK_URL=$${DISCORD_WEBHOOK_URL}
+      - AWS_REGION=$${AWS_REGION}
+      - S3_BUCKET_NAME=$${S3_BUCKET_NAME}
     depends_on:
       db:
         condition: service_healthy
@@ -103,11 +103,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USERNAME}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=$${DB_NAME}
+      - POSTGRES_USER=$${DB_USERNAME}
+      - POSTGRES_PASSWORD=$${DB_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U $${DB_USERNAME} -d $${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
