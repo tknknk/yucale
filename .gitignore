@@ -1,0 +1,26 @@
+# Environment
+.env
+.env.*
+!.env.example
+!.env.prod.example
+
+# IDE / Editor
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+.claude/
+.agents/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Security
+*.pem
+*.key
+*.crt
+
+# Local dev
+.dev/

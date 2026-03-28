@@ -1,0 +1,45 @@
+services:
+  db-test:
+    image: postgres:15
+    container_name: yucale_db_test
+    environment:
+      POSTGRES_DB: yucale_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    container_name: yucale_backend_test
+    environment:
+      SPRING_PROFILES_ACTIVE: test
+    depends_on:
+      db-test:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - maven_cache:/root/.m2
+    working_dir: /app
+
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.test
+    container_name: yucale_frontend_test
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    working_dir: /app
+
+volumes:
+  maven_cache:

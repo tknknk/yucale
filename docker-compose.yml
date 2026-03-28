@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:15
+    container_name: yucale_db
+    environment:
+      POSTGRES_DB: yucale
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: ${TZ:-Asia/Tokyo}
+      PGTZ: ${TZ:-Asia/Tokyo}
+    command: >
+      postgres
+      -c log_timezone=${TZ:-Asia/Tokyo}
+      -c timezone=${TZ:-Asia/Tokyo}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: yucale_backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/yucale
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      DEFAULT_BELONGING_LIST: ${DEFAULT_BELONGING_LIST:-S,A,T,B}
+      DEFAULT_RESPONSE_OPTIONS: ${DEFAULT_RESPONSE_OPTIONS:-出席,欠席,未定}
+      DEFAULT_ATTENDING_OPTIONS: ${DEFAULT_ATTENDING_OPTIONS:-出席}
+      TZ: ${TZ:-Asia/Tokyo}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api}
+        NEXT_PUBLIC_ICS_FILENAME: ${NEXT_PUBLIC_ICS_FILENAME:-calendar.ics}
+        NEXT_PUBLIC_DEFAULT_START_TIME: ${NEXT_PUBLIC_DEFAULT_START_TIME:-09:00}
+        NEXT_PUBLIC_DEFAULT_END_TIME: ${NEXT_PUBLIC_DEFAULT_END_TIME:-10:00}
+    container_name: yucale_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

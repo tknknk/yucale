@@ -1,0 +1,49 @@
+# =============================================================================
+# Terraform Variables Example
+# Yucale Service - EC2 Minimal Configuration
+# =============================================================================
+# Copy this file to terraform.tfvars and fill in your values
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Required Settings
+# -----------------------------------------------------------------------------
+
+# Database password (required, no default)
+# Use a strong password with at least 16 characters
+db_password = "your-secure-password-here"
+
+# Admin email for the first admin user
+admin_email = "admin@example.com"
+
+# -----------------------------------------------------------------------------
+# Optional Settings
+# -----------------------------------------------------------------------------
+
+# Project and environment
+project_name = "Yucale"
+environment  = "dev"  # dev, staging, prod
+
+# AWS region
+aws_region = "ap-northeast-1"
+
+# EC2 instance type (ARM-based Graviton for cost efficiency)
+instance_type = "t4g.micro"  # 1GB RAM, ~$6/month
+
+# Root volume size in GB
+root_volume_size = 20
+
+# SSH key pair name (optional - leave empty to disable SSH)
+# Create a key pair in AWS Console first if you want SSH access
+key_pair_name = ""
+
+# CIDR blocks allowed for SSH (only used if key_pair_name is set)
+# Example: ["123.45.67.89/32"] for a single IP
+allowed_ssh_cidrs = []
+
+# Discord webhook URL for notifications (optional)
+discord_webhook_url = ""
+
+# S3 bucket name for ICS files (optional - auto-generated if empty)
+# Must be globally unique if specified
+ics_bucket_name = ""

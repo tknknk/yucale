@@ -1,0 +1,155 @@
+# =============================================================================
+# Docker Compose - Production (AWS EC2)
+# Yucale Service
+# =============================================================================
+# Usage:
+#   1. Copy .env.example to .env and fill in values
+#   2. docker-compose -f docker-compose.prod.yml up -d
+# =============================================================================
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: yucale_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-yucale}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: ${TZ:-Asia/Tokyo}
+      PGTZ: ${TZ:-Asia/Tokyo}
+    command: >
+      postgres
+      -c log_timezone=${TZ:-Asia/Tokyo}
+      -c timezone=${TZ:-Asia/Tokyo}
+      -c shared_buffers=64MB
+      -c effective_cache_size=128MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=16MB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-yucale}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Memory limit for t4g.micro (1GB total)
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  backend:
+    image: ghcr.io/tknknk/yucale/backend:latest
+    container_name: yucale_backend
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME:-yucale}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      DEFAULT_BELONGING_LIST: ${DEFAULT_BELONGING_LIST:-S,A,T,B}
+      DEFAULT_RESPONSE_OPTIONS: ${DEFAULT_RESPONSE_OPTIONS:-出席,欠席,未定}
+      DEFAULT_ATTENDING_OPTIONS: ${DEFAULT_ATTENDING_OPTIONS:-出席}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
+      TZ: ${TZ:-Asia/Tokyo}
+      # Production logging: INFO level only
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_YUCALE: INFO
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY: INFO
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  frontend:
+    image: ghcr.io/tknknk/yucale/frontend:latest
+    container_name: yucale_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      TZ: ${TZ:-Asia/Tokyo}
+      NODE_ENV: production
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  # Nginx reverse proxy (optional, for internal routing)
+  nginx:
+    image: nginx:alpine
+    container_name: yucale_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+    profiles:
+      - with-nginx
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
