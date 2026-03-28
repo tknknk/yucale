@@ -67,30 +67,10 @@ resource "aws_cloudfront_origin_access_control" "ics" {
   signing_protocol                  = "sigv4"
 }
 
-# Cache Policy for EC2 (no caching for dynamic content)
-resource "aws_cloudfront_cache_policy" "ec2_no_cache" {
-  name        = "${local.name_prefix}-ec2-no-cache"
-  comment     = "No caching for EC2 origin"
-  default_ttl = 0
-  max_ttl     = 0
-  min_ttl     = 0
-
-  parameters_in_cache_key_and_forwarded_to_origin {
-    cookies_config {
-      cookie_behavior = "all"
-    }
-    headers_config {
-      header_behavior = "whitelist"
-      headers {
-        items = ["Host", "Origin", "Accept", "Authorization", "Content-Type"]
-      }
-    }
-    query_strings_config {
-      query_string_behavior = "all"
-    }
-    enable_accept_encoding_brotli = false
-    enable_accept_encoding_gzip   = false
-  }
+# Use AWS Managed CachingDisabled policy for EC2 (no caching for dynamic content)
+# Policy ID: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
 }
 
 # Cache Policy for ICS files (short cache)
@@ -195,7 +175,7 @@ resource "aws_cloudfront_distribution" "main" {
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
 
-    cache_policy_id            = aws_cloudfront_cache_policy.ec2_no_cache.id
+    cache_policy_id            = data.aws_cloudfront_cache_policy.caching_disabled.id
     origin_request_policy_id   = aws_cloudfront_origin_request_policy.ec2_all_viewer.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.noindex.id
   }
