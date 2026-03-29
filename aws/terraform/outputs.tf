@@ -69,6 +69,11 @@ output "ics_bucket_name" {
   value       = aws_s3_bucket.ics.id
 }
 
+output "s3_bucket_name" {
+  description = "Name of the S3 bucket for ICS files (alias)"
+  value       = aws_s3_bucket.ics.id
+}
+
 output "ics_bucket_arn" {
   description = "ARN of the S3 bucket for ICS files"
   value       = aws_s3_bucket.ics.arn

@@ -26,6 +26,11 @@ APP_PORT="${app_port}"
 # Update system
 dnf update -y
 
+# Install and start SSM Agent
+dnf install -y amazon-ssm-agent
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
+
 # Install Docker
 dnf install -y docker
 systemctl enable docker

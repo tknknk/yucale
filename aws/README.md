@@ -30,6 +30,31 @@
 
 - AWS CLI configured
 - Terraform >= 1.5.0
+- AWS Session Manager Plugin（SSM接続に必要）
+
+### Session Manager Plugin のインストール
+
+SSM Session Manager でEC2に接続するには、ローカルPCにプラグインが必要です。
+
+**Windows (PowerShell を管理者権限で実行):**
+```powershell
+winget install Amazon.SessionManagerPlugin
+```
+
+または手動でダウンロード: https://s3.amazonaws.com/session-manager-downloads/plugin/latest/windows/SessionManagerPluginSetup.exe
+
+**macOS:**
+```bash
+brew install --cask session-manager-plugin
+```
+
+**Linux:**
+```bash
+curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
+sudo dpkg -i session-manager-plugin.deb
+```
+
+インストール後、ターミナルを再起動してください。
 
 ## Docker Images
 
@@ -107,14 +132,44 @@ After deployment, Terraform outputs will show:
 
 ## Maintenance
 
-### SSH Access (if configured)
+### SSM Session Manager (推奨)
 ```bash
-ssh -i your-key.pem ec2-user@<elastic-ip>
+# インスタンスIDを取得
+INSTANCE_ID=$(terraform output -raw ec2_instance_id)
+
+# 接続
+aws ssm start-session --target $INSTANCE_ID --region ap-northeast-1
 ```
 
-### SSM Session Manager (recommended)
+### SSH Access (オプション)
+
+SSHキーペアを使用する場合は、事前にAWSコンソールでキーペアを作成してください。
+
+**1. AWSコンソールでキーペア作成:**
+- EC2 → キーペア → 「キーペアを作成」
+- 名前: 任意（例: `yucale-key`）
+- タイプ: RSA
+- 形式: `.pem`
+- 作成するとブラウザが `.pem` ファイルをダウンロード
+
+**2. キーファイルの権限設定:**
 ```bash
-aws ssm start-session --target <instance-id>
+# Linux/Mac
+chmod 400 yucale-key.pem
+
+# Windows (PowerShell)
+icacls yucale-key.pem /inheritance:r /grant:r "$($env:USERNAME):(R)"
+```
+
+**3. terraform.tfvars に設定:**
+```hcl
+key_pair_name = "yucale-key"
+allowed_ssh_cidrs = ["YOUR_IP/32"]  # 自分のIPアドレス
+```
+
+**4. SSH接続:**
+```bash
+ssh -i yucale-key.pem ec2-user@<elastic-ip>
 ```
 
 ### View Logs
@@ -149,3 +204,45 @@ terraform destroy
 - EC2 security group only allows traffic from CloudFront
 - SSH is disabled by default (use SSM Session Manager)
 - Database runs locally in Docker (no external access)
+
+## Troubleshooting
+
+### SSM接続エラー: "TargetNotConnected"
+
+```
+An error occurred (TargetNotConnected) when calling the StartSession operation
+```
+
+**原因と対策:**
+
+1. **インスタンス起動直後**: user_dataスクリプト実行中。2-3分待ってから再試行。
+
+2. **SSMエージェントが未登録**: 確認コマンド:
+   ```bash
+   aws ssm describe-instance-information --region ap-northeast-1
+   ```
+   `InstanceInformationList` が空の場合、SSMエージェントが起動していません。
+
+3. **インスタンスの再作成が必要な場合**:
+   ```bash
+   cd aws/terraform
+   terraform apply -replace="aws_instance.main"
+   ```
+
+### SSM接続エラー: "SessionManagerPlugin is not found"
+
+ローカルPCにSession Manager Pluginがインストールされていません。
+「Prerequisites」セクションのインストール手順を参照してください。
+
+### terraform output が空
+
+Terraformを正しいディレクトリから実行しているか確認:
+```bash
+cd aws/terraform
+terraform output
+```
+
+### terraform plan エラー: "vars map does not contain key"
+
+`user_data.sh` 内の変数参照が正しくエスケープされていない可能性があります。
+Terraform templatefile では `${VAR}` は `$${VAR}` とエスケープが必要です。
