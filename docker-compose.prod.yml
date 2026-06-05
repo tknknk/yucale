@@ -77,17 +77,17 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8080/api/health"]
       interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     networks:
       - app-network
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 384M
 
   frontend:
     image: ghcr.io/tknknk/yucale/frontend:latest
@@ -98,11 +98,16 @@ services:
     environment:
       TZ: ${TZ:-Asia/Tokyo}
       NODE_ENV: production
+      # Next.js standalone binds to $HOSTNAME (Docker sets it to the container ID),
+      # so it only listens on the container IP. Force 0.0.0.0 to listen on loopback too.
+      HOSTNAME: 0.0.0.0
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      # Use 127.0.0.1 (not localhost): BusyBox wget resolves localhost to IPv6 ::1 first,
+      # which the IPv4 0.0.0.0 listener does not accept.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -117,7 +122,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 64M
+          memory: 96M
 
   # Nginx reverse proxy (optional, for internal routing)
   nginx:

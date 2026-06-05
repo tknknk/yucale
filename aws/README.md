@@ -62,7 +62,7 @@ Docker イメージは GitHub Actions で自動ビルドされ、GitHub Containe
 
 ### 自動ビルド (GitHub Actions)
 
-`main` ブランチへの push 時に自動実行:
+`master` ブランチへの push 時に自動実行:
 - `ghcr.io/tknknk/yucale/backend:latest`
 - `ghcr.io/tknknk/yucale/frontend:latest`
 
@@ -129,6 +129,18 @@ docker-compose -f docker-compose.prod.yml up -d
 After deployment, Terraform outputs will show:
 - `application_url`: https://xxxxx.cloudfront.net
 - `ics_url`: https://xxxxx.cloudfront.net/calendar.ics
+
+```bash
+cd aws/terraform
+terraform output -raw application_url
+```
+
+> **注意**: アクセスは必ず CloudFront の URL (`application_url`) を使用してください。
+> EC2 の Public IP に直接 (`http://<ec2_public_ip>` や `:3000`) アクセスすると
+> **タイムアウトします**。EC2 のセキュリティグループは CloudFront の IP レンジからの
+> ポート 3000 のみを許可しており、それ以外の送信元は遮断されます（仕様です）。
+> なお `nginx` サービスは `with-nginx` プロファイル時のみ起動するため、
+> ポート 80 は通常使用されません。
 
 ## Maintenance
 
@@ -233,6 +245,35 @@ An error occurred (TargetNotConnected) when calling the StartSession operation
 
 ローカルPCにSession Manager Pluginがインストールされていません。
 「Prerequisites」セクションのインストール手順を参照してください。
+
+### コンテナが unhealthy / `dependency failed to start`
+
+```
+dependency failed to start: container yucale_backend is unhealthy
+```
+
+アプリ自体は起動しているのにヘルスチェックが通らないケース。`docker-compose.prod.yml`
+のヘルスチェックは以下の点に対応済みです（古い設定を流用している場合は確認）:
+
+- **backend**: `wget --spider`（HEAD リクエスト）は `/api/health` で 401 になる
+  （Spring Security が GET のみ許可しているため）。`-O /dev/null`（GET）を使うこと。
+- **frontend**: Next.js standalone は Docker が自動設定する `HOSTNAME`（= コンテナ ID）
+  を bind アドレスに使い loopback で待ち受けない。`HOSTNAME=0.0.0.0` を指定し、
+  ヘルスチェックは `localhost` ではなく `127.0.0.1` を使うこと
+  （BusyBox wget は `localhost` を IPv6 `::1` 優先で解決し IPv4 リスナーに繋がらない）。
+
+状態の詳細確認:
+```bash
+sudo docker inspect --format '{{json .State.Health}}' yucale_backend
+sudo docker inspect --format '{{json .State.Health}}' yucale_frontend
+```
+
+最新の `docker-compose.prod.yml` を取得して再起動:
+```bash
+cd /opt/yucale
+sudo curl -o docker-compose.yml https://raw.githubusercontent.com/tknknk/yucale/master/docker-compose.prod.yml
+sudo docker-compose up -d
+```
 
 ### terraform output が空
 
