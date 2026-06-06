@@ -3,16 +3,27 @@
 ## Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────────────────┐
-│   CloudFront    │────→│  EC2 t4g.micro (ARM)        │
-│  (HTTPS end)    │     │  ┌─────────────────────────┐│
-│                 │     │  │ Docker Compose          ││
-│  /calendar.ics  │     │  │ ├── Next.js    (30MB)   ││
-│       ↓         │     │  │ ├── Spring Boot (78MB)  ││
-│      S3         │     │  │ └── PostgreSQL (66MB)   ││
-└─────────────────┘     │  └─────────────────────────┘│
-                        └─────────────────────────────┘
+┌─────────────────┐     ┌─────────────────────────────────┐
+│   CloudFront    │     │  EC2 t4g.micro (ARM)            │
+│  (HTTPS end)    │     │  ┌───────────────────────────┐  │
+│                 │     │  │ Docker Compose            │  │
+│  default /* ────┼────→│  │ nginx :3000→:80 (entry)   │  │
+│                 │     │  │   ├─ /api/        → backend│  │
+│                 │     │  │   ├─ /calendar.ics→ backend│  │
+│  /calendar.ics  │     │  │   └─ /            → frontend│  │
+│       ↓         │     │  │ ├── Next.js    (frontend) │  │
+│      S3         │     │  │ ├── Spring Boot (backend) │  │
+└─────────────────┘     │  │ └── PostgreSQL            │  │
+                        │  └───────────────────────────┘  │
+                        └─────────────────────────────────┘
 ```
+
+CloudFront connects to the EC2 host on port **3000** (`app_port`), where
+**nginx** is the single entry point. nginx proxies `/api/` and `/calendar.ics`
+to the Spring Boot backend and everything else to the Next.js frontend; only
+nginx is published to the host. Because the browser, nginx and the backend
+share the CloudFront origin, the backend must allow that origin via CORS
+(see `CORS_ALLOWED_ORIGINS` below).
 
 ## Estimated Monthly Cost
 
@@ -116,6 +127,13 @@ aws ssm start-session --target $INSTANCE_ID
 
 # On the EC2 instance:
 cd /opt/yucale
+
+# Configure .env (copy .env.prod.example and fill in values).
+# IMPORTANT: set CORS_ALLOWED_ORIGINS to the CloudFront URL, otherwise API
+# POSTs (login/register/etc.) are rejected with 403 (Invalid CORS request):
+#   CORS_ALLOWED_ORIGINS=https://xxxxx.cloudfront.net
+# nginx also needs nginx.prod.conf present next to docker-compose.yml:
+#   sudo curl -o nginx.prod.conf https://raw.githubusercontent.com/tknknk/yucale/master/nginx.prod.conf
 
 # Pull images from ghcr.io (public, no auth required)
 docker-compose -f docker-compose.prod.yml pull
@@ -274,6 +292,30 @@ cd /opt/yucale
 sudo curl -o docker-compose.yml https://raw.githubusercontent.com/tknknk/yucale/master/docker-compose.prod.yml
 sudo docker-compose up -d
 ```
+
+### ページは開くがログイン/登録できない（API が 403 / 401）
+
+画面は表示されるのに `/api/...` への POST が失敗する場合:
+
+- **`POST /api/auth/*` が 403**: バックエンドの CORS 許可オリジンに、ブラウザが
+  使う公開オリジン（CloudFront URL）が含まれていない。`.env` の
+  `CORS_ALLOWED_ORIGINS` を CloudFront URL に設定して再作成:
+  ```bash
+  # .env に設定後
+  cd /opt/yucale && sudo docker-compose up -d
+  ```
+  確認（403 でなく 201/409 ならOK）:
+  ```bash
+  curl -i -X POST http://localhost:3000/api/auth/register \
+    -H 'Content-Type: application/json' \
+    -H 'Origin: https://xxxxx.cloudfront.net' \
+    -d '{"username":"t","email":"t@example.com","password":"Passw0rd!"}'
+  ```
+- **`/api/...` がすべて Next.js に吸われる / 404**: nginx が経路にいない。
+  nginx が起動しているか（`docker ps` に `yucale_nginx`）、ホスト 3000 を
+  nginx が公開しているか確認。`nginx.prod.conf` が `/opt/yucale` に必要。
+- **GET は通るが POST だけ失敗**: 同一オリジンの GET には `Origin` ヘッダが付かず
+  CORS 検査を素通りするため。POST 失敗は上記の CORS 設定を確認。
 
 ### terraform output が空
 
