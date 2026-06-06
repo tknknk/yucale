@@ -134,7 +134,10 @@ resource "aws_cloudfront_distribution" "main" {
   default_root_object = ""
   price_class         = "PriceClass_200" # Asia, Europe, North America
 
-  # Origin 1: S3 for ICS files
+  # Origin 1: S3 for ICS files.
+  # NOTE: currently unused for serving — /calendar.ics is served by the backend
+  # (see Behavior 1 below). Kept so ICS can be switched to S3-hosted later
+  # (would require the backend to upload the generated file to this bucket).
   origin {
     domain_name              = aws_s3_bucket.ics.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.ics.id
@@ -154,12 +157,15 @@ resource "aws_cloudfront_distribution" "main" {
     }
   }
 
-  # Behavior 1: /calendar.ics -> S3
+  # Behavior 1: /calendar.ics -> EC2 (backend generates and serves the ICS file;
+  # nginx proxies /calendar.ics to the backend). Short TTL (5 min default / 1h
+  # max via ics_cache) keeps it edge-cached so calendar clients keep working
+  # even during backend restarts/deploys.
   ordered_cache_behavior {
     path_pattern           = "/calendar.ics"
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "S3-ICS"
+    target_origin_id       = "EC2-Web"
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
 

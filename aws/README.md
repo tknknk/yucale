@@ -7,12 +7,12 @@
 │   CloudFront    │     │  EC2 t4g.micro (ARM)            │
 │  (HTTPS end)    │     │  ┌───────────────────────────┐  │
 │                 │     │  │ Docker Compose            │  │
-│  default /* ────┼────→│  │ nginx :3000→:80 (entry)   │  │
-│                 │     │  │   ├─ /api/        → backend│  │
-│                 │     │  │   ├─ /calendar.ics→ backend│  │
-│  /calendar.ics  │     │  │   └─ /            → frontend│  │
-│       ↓         │     │  │ ├── Next.js    (frontend) │  │
-│      S3         │     │  │ ├── Spring Boot (backend) │  │
+│  /calendar.ics ─┼──┐  │  │ nginx :3000→:80 (entry)   │  │
+│   (5min edge    │  │  │  │   ├─ /api/        → backend│  │
+│    cache)       │  ├─→│  │   ├─ /calendar.ics→ backend│  │
+│  default /* ────┼──┘  │  │   └─ /            → frontend│  │
+│                 │     │  │ ├── Next.js    (frontend) │  │
+│                 │     │  │ ├── Spring Boot (backend) │  │
 └─────────────────┘     │  │ └── PostgreSQL            │  │
                         │  └───────────────────────────┘  │
                         └─────────────────────────────────┘
@@ -24,6 +24,11 @@ to the Spring Boot backend and everything else to the Next.js frontend; only
 nginx is published to the host. Because the browser, nginx and the backend
 share the CloudFront origin, the backend must allow that origin via CORS
 (see `CORS_ALLOWED_ORIGINS` below).
+
+The `/calendar.ics` behavior has its own short-TTL cache (5 min default / 1 h
+max) so calendar clients keep working even during backend restarts. The S3
+bucket and `S3-ICS` origin exist but are **currently unused for serving** (the
+backend has no S3 upload); ICS is generated and served by the backend.
 
 ## Estimated Monthly Cost
 
