@@ -80,6 +80,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/calendar.ics").permitAll()
+                // Allow HEAD too: calendar clients and CloudFront issue HEAD
+                // requests against the feed (a GET-only matcher would 401 them).
+                .requestMatchers(HttpMethod.HEAD, "/calendar.ics").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/schedules").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/schedules/public").permitAll()
