@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.github.tknknk.yucale.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -42,6 +43,14 @@ public class SecurityConfig {
     private final ObjectMapper objectMapper;
     private final RateLimitFilter rateLimitFilter;
 
+    /**
+     * Comma-separated list of allowed CORS origins.
+     * Defaults to the local dev frontend; override in production with the
+     * public origin (e.g. the CloudFront domain) via APP_CORS_ALLOWED_ORIGINS.
+     */
+    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    private String allowedOrigins;
+
     public SecurityConfig(ObjectMapper objectMapper, RateLimitFilter rateLimitFilter) {
         this.objectMapper = objectMapper;
         this.rateLimitFilter = rateLimitFilter;
@@ -71,7 +80,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/calendar.ics").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/csrf").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/schedules").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/schedules/public").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/schedules/upcoming").permitAll()
@@ -141,7 +150,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+        configuration.setAllowedOrigins(
+                Arrays.stream(allowedOrigins.split(","))
+                        .map(String::trim)
+                        .filter(origin -> !origin.isEmpty())
+                        .collect(Collectors.toList()));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-XSRF-TOKEN"));
         configuration.setExposedHeaders(List.of("X-XSRF-TOKEN"));
