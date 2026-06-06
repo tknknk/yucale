@@ -26,9 +26,12 @@ public class IcsController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("text/calendar; charset=utf-8"));
         headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"calendar.ics\"");
-        headers.setCacheControl("no-cache, no-store, must-revalidate");
-        headers.setPragma("no-cache");
-        headers.setExpires(0);
+        // Cacheable so CloudFront edge-caches it (matches the ics_cache 5 min TTL).
+        // The calendar is the same for everyone, and a few minutes of staleness is
+        // fine for subscriptions; this offloads the backend and keeps the feed
+        // available during backend restarts. Setting Cache-Control here also
+        // prevents Spring Security from adding its default no-store headers.
+        headers.setCacheControl("public, max-age=300");
 
         return ResponseEntity.ok()
                 .headers(headers)
