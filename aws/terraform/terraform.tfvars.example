@@ -31,7 +31,19 @@ aws_region = "ap-northeast-1"
 instance_type = "t4g.micro"  # 1GB RAM, ~$6/month
 
 # Root volume size in GB
-root_volume_size = 20
+# Must be >= the AMI snapshot size; Amazon Linux 2023 ARM requires >= 30
+# (30GB is within the EBS free tier).
+root_volume_size = 30
+
+# CORS allowed origins for the backend = the public CloudFront URL.
+# Leave empty on the very first apply (the CloudFront domain isn't known yet),
+# then set it and apply again so the instance bootstraps with the right origin.
+# Example: cors_allowed_origins = "https://xxxxx.cloudfront.net"
+cors_allowed_origins = ""
+
+# GitHub repo (owner/name) the instance fetches docker-compose.prod.yml and
+# nginx.prod.conf from at boot.
+# github_repo = "tknknk/yucale"
 
 # SSH key pair name (optional - leave empty to disable SSH)
 # Create a key pair in AWS Console first if you want SSH access

@@ -4,6 +4,13 @@ set -e
 # =============================================================================
 # EC2 User Data Script
 # Yucale Service - Docker Compose Setup
+#
+# This bootstraps a fresh instance into a working deployment:
+#   - installs Docker / docker-compose / SSM / CloudWatch agents
+#   - fetches the production docker-compose.prod.yml and nginx.prod.conf from
+#     the repo (single source of truth) into /opt/yucale
+#   - writes /opt/yucale/.env (including CORS_ALLOWED_ORIGINS)
+#   - starts everything via the yucale systemd service
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -17,123 +24,52 @@ DB_USERNAME="${db_username}"
 DB_PASSWORD="${db_password}"
 ADMIN_EMAIL="${admin_email}"
 DISCORD_WEBHOOK_URL="${discord_webhook_url}"
-APP_PORT="${app_port}"
+CORS_ALLOWED_ORIGINS="${cors_allowed_origins}"
+GITHUB_REPO="${github_repo}"
 
 # -----------------------------------------------------------------------------
 # System Setup
 # -----------------------------------------------------------------------------
 
-# Update system
 dnf update -y
 
-# Install and start SSM Agent
+# SSM Agent (Session Manager access)
 dnf install -y amazon-ssm-agent
 systemctl enable amazon-ssm-agent
 systemctl start amazon-ssm-agent
 
-# Install Docker
+# Docker
 dnf install -y docker
 systemctl enable docker
 systemctl start docker
 
-# Install Docker Compose
+# Docker Compose v2 (standalone binary, ARM64)
 DOCKER_COMPOSE_VERSION="v2.24.0"
-curl -L "https://github.com/docker/compose/releases/download/$${DOCKER_COMPOSE_VERSION}/docker-compose-linux-aarch64" -o /usr/local/bin/docker-compose
+curl -fL --retry 5 --retry-delay 5 \
+  "https://github.com/docker/compose/releases/download/$${DOCKER_COMPOSE_VERSION}/docker-compose-linux-aarch64" \
+  -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# Install CloudWatch agent
+# CloudWatch agent
 dnf install -y amazon-cloudwatch-agent
 
-# Add ec2-user to docker group
+# Allow ec2-user to run docker
 usermod -aG docker ec2-user
 
 # -----------------------------------------------------------------------------
-# Application Directory Setup
+# Application Setup (single source of truth: the GitHub repo)
 # -----------------------------------------------------------------------------
 
-APP_DIR="/opt/Yucale"
-mkdir -p $APP_DIR
-cd $APP_DIR
+APP_DIR="/opt/yucale"
+mkdir -p "$APP_DIR"
+cd "$APP_DIR"
+
+RAW_BASE="https://raw.githubusercontent.com/$GITHUB_REPO/master"
+curl -fL --retry 5 --retry-delay 5 -o docker-compose.yml "$RAW_BASE/docker-compose.prod.yml"
+curl -fL --retry 5 --retry-delay 5 -o nginx.prod.conf "$RAW_BASE/nginx.prod.conf"
 
 # -----------------------------------------------------------------------------
-# Create docker-compose.yml
-# -----------------------------------------------------------------------------
-
-cat > docker-compose.yml << 'COMPOSE_EOF'
-services:
-  frontend:
-    image: ghcr.io/your-org/Yucale-frontend:latest
-    restart: unless-stopped
-    ports:
-      - "$${APP_PORT}:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3000/api
-      - NODE_ENV=production
-    depends_on:
-      - backend
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
-  backend:
-    image: ghcr.io/your-org/Yucale-backend:latest
-    restart: unless-stopped
-    expose:
-      - "8080"
-    environment:
-      - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/$${DB_NAME}
-      - SPRING_DATASOURCE_USERNAME=$${DB_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=$${DB_PASSWORD}
-      - ADMIN_EMAIL=$${ADMIN_EMAIL}
-      - DISCORD_WEBHOOK_URL=$${DISCORD_WEBHOOK_URL}
-      - AWS_REGION=$${AWS_REGION}
-      - S3_BUCKET_NAME=$${S3_BUCKET_NAME}
-    depends_on:
-      db:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
-
-  db:
-    image: postgres:15-alpine
-    restart: unless-stopped
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_DB=$${DB_NAME}
-      - POSTGRES_USER=$${DB_USERNAME}
-      - POSTGRES_PASSWORD=$${DB_PASSWORD}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${DB_USERNAME} -d $${DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-volumes:
-  postgres_data:
-COMPOSE_EOF
-
-# Replace variables in docker-compose.yml
-sed -i "s|\$${APP_PORT}|$APP_PORT|g" docker-compose.yml
-sed -i "s|\$${DB_NAME}|$DB_NAME|g" docker-compose.yml
-sed -i "s|\$${DB_USERNAME}|$DB_USERNAME|g" docker-compose.yml
-sed -i "s|\$${DB_PASSWORD}|$DB_PASSWORD|g" docker-compose.yml
-sed -i "s|\$${ADMIN_EMAIL}|$ADMIN_EMAIL|g" docker-compose.yml
-sed -i "s|\$${DISCORD_WEBHOOK_URL}|$DISCORD_WEBHOOK_URL|g" docker-compose.yml
-sed -i "s|\$${AWS_REGION}|$AWS_REGION|g" docker-compose.yml
-sed -i "s|\$${S3_BUCKET_NAME}|$S3_BUCKET_NAME|g" docker-compose.yml
-
-# -----------------------------------------------------------------------------
-# Create .env file (for sensitive values)
+# Environment file (sensitive / per-deployment values consumed by the compose)
 # -----------------------------------------------------------------------------
 
 cat > .env << ENV_EOF
@@ -142,17 +78,18 @@ DB_USERNAME=$DB_USERNAME
 DB_PASSWORD=$DB_PASSWORD
 ADMIN_EMAIL=$ADMIN_EMAIL
 DISCORD_WEBHOOK_URL=$DISCORD_WEBHOOK_URL
+CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS
 AWS_REGION=$AWS_REGION
 S3_BUCKET_NAME=$S3_BUCKET_NAME
+TZ=Asia/Tokyo
 ENV_EOF
-
 chmod 600 .env
 
 # -----------------------------------------------------------------------------
-# Create systemd service for docker-compose
+# systemd service (pulls latest images, then starts the stack)
 # -----------------------------------------------------------------------------
 
-cat > /etc/systemd/system/Yucale.service << 'SERVICE_EOF'
+cat > /etc/systemd/system/yucale.service << 'SERVICE_EOF'
 [Unit]
 Description=Yucale Application
 After=docker.service
@@ -161,17 +98,19 @@ Requires=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/opt/Yucale
+WorkingDirectory=/opt/yucale
+ExecStartPre=-/usr/local/bin/docker-compose pull
 ExecStart=/usr/local/bin/docker-compose up -d
 ExecStop=/usr/local/bin/docker-compose down
-TimeoutStartSec=300
+TimeoutStartSec=600
 
 [Install]
 WantedBy=multi-user.target
 SERVICE_EOF
 
 systemctl daemon-reload
-systemctl enable Yucale
+systemctl enable yucale
+systemctl start yucale || true
 
 # -----------------------------------------------------------------------------
 # CloudWatch Agent Configuration
@@ -194,9 +133,9 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << CWAGE
             "retention_in_days": 7
           },
           {
-            "file_path": "/var/log/docker",
+            "file_path": "/var/log/user-data.log",
             "log_group_name": "$LOG_GROUP_NAME",
-            "log_stream_name": "{instance_id}/docker",
+            "log_stream_name": "{instance_id}/user-data",
             "retention_in_days": 7
           }
         ]
@@ -222,13 +161,7 @@ systemctl enable amazon-cloudwatch-agent
 systemctl start amazon-cloudwatch-agent
 
 # -----------------------------------------------------------------------------
-# Start Application
-# Note: In production, images should be pre-built and pushed to a registry
-# For now, this creates a placeholder that you'll update with actual images
+# Done
 # -----------------------------------------------------------------------------
 
-echo "EC2 setup complete. Please deploy your Docker images and run:"
-echo "  cd /opt/Yucale && docker-compose up -d"
-
-# Log completion
 echo "$(date): EC2 user data script completed" >> /var/log/user-data.log

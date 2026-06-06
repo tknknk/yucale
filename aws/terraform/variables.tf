@@ -96,6 +96,18 @@ variable "discord_webhook_url" {
   sensitive   = true
 }
 
+variable "cors_allowed_origins" {
+  description = "Backend CORS allowed origins (the public CloudFront URL, e.g. https://xxxxx.cloudfront.net). Leave empty on the very first apply (the CloudFront domain is not known yet), then set it and apply again so instance recreations bootstrap with the correct origin."
+  type        = string
+  default     = ""
+}
+
+variable "github_repo" {
+  description = "GitHub repo (owner/name) the instance fetches docker-compose.prod.yml and nginx.prod.conf from at boot."
+  type        = string
+  default     = "tknknk/yucale"
+}
+
 # -----------------------------------------------------------------------------
 # Database Settings (PostgreSQL in Docker)
 # -----------------------------------------------------------------------------
