@@ -9,13 +9,20 @@ interface CalendarSubscribeLinkProps {
 export default function CalendarSubscribeLink({ inline = false }: CalendarSubscribeLinkProps) {
   const [copied, setCopied] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [icsUrl, setIcsUrl] = useState('');
   const popupRef = useRef<HTMLDivElement>(null);
 
-  // Build ICS URL from environment variables
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
-  const icsFilename = process.env.NEXT_PUBLIC_ICS_FILENAME || 'calendar.ics';
-  const baseUrl = apiUrl.replace(/\/api$/, '');
-  const icsUrl = `${baseUrl}/${icsFilename}`;
+  // Build the ICS URL from environment variables. NEXT_PUBLIC_API_URL is a
+  // relative path ("/api") in production so the API is called same-origin, but
+  // a calendar subscription URL must be absolute (scheme + host). When the base
+  // is relative, prefix the current origin (e.g. the CloudFront domain).
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+    const icsFilename = process.env.NEXT_PUBLIC_ICS_FILENAME || 'calendar.ics';
+    const base = apiUrl.replace(/\/api$/, '');
+    const path = `${base}/${icsFilename}`;
+    setIcsUrl(/^https?:\/\//.test(base) ? path : `${window.location.origin}${path}`);
+  }, []);
 
   const handleCopy = async () => {
     try {
