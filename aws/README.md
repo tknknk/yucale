@@ -35,7 +35,7 @@ backend has no S3 upload); ICS is generated and served by the backend.
 | Service | Cost |
 |---------|------|
 | EC2 t4g.micro | $6.05 |
-| EBS 20GB gp3 | $1.60 |
+| EBS 30GB gp3 | $0 (free tier 30GB) |
 | Elastic IP | $0 (attached) |
 | CloudFront | $0 (free tier) |
 | S3 | ~$0.03 |

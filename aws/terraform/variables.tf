@@ -57,9 +57,9 @@ variable "instance_type" {
 }
 
 variable "root_volume_size" {
-  description = "Root EBS volume size in GB"
+  description = "Root EBS volume size in GB (must be >= the AMI snapshot size; Amazon Linux 2023 ARM requires >= 30). 30GB is within the EBS free tier."
   type        = number
-  default     = 20
+  default     = 30
 }
 
 variable "key_pair_name" {

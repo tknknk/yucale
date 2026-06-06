@@ -155,8 +155,16 @@ resource "aws_instance" "main" {
   }
 
   lifecycle {
-    # Prevent accidental termination
-    # Set to true for production
+    # Pin to the AMI the instance currently runs. The AMI data source uses
+    # most_recent=true, so without this a newly published Amazon Linux 2023 AMI
+    # would force-REPLACE the instance on the next apply — destroying the root
+    # EBS volume and all data (Docker volumes, DB) even for unrelated changes.
+    # Bump the AMI deliberately (terraform taint / -replace) when you actually
+    # want to rebuild the host.
+    ignore_changes = [ami]
+
+    # Prevent accidental termination — set to true to make terraform refuse to
+    # destroy this instance.
     prevent_destroy = false
   }
 }
