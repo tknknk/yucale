@@ -389,10 +389,13 @@ class AuthControllerTest {
         }
 
         @Test
-        @DisplayName("未認証ユーザーは401エラー")
+        @DisplayName("未認証ユーザーもCSRFトークンを取得できる")
         void getCsrfToken_unauthenticated() throws Exception {
+            // /api/auth/csrf is permitAll so the frontend can fetch a token
+            // before logging in; unauthenticated requests return 200.
             mockMvc.perform(get("/api/auth/csrf"))
-                    .andExpect(status().isUnauthorized());
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
         }
     }
 
