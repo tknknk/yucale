@@ -273,7 +273,7 @@ export default function SurveyResponseForm({
       {/* User Name */}
       <div>
         <label htmlFor="userName" className="block text-sm font-medium text-gray-800">
-          ユーザー名(名字) <span className="text-red-500">*</span>
+          ユーザー名(表示名) <span className="text-red-500">*</span>
         </label>
         <div className="relative mt-1">
           <input

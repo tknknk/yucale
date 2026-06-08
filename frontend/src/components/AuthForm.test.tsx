@@ -34,7 +34,7 @@ describe('AuthForm', () => {
     it('should not render username field', () => {
       render(<AuthForm mode="login" onSubmit={mockOnSubmit} />);
 
-      expect(screen.queryByLabelText(/表示名/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/ユーザー名/)).not.toBeInTheDocument();
     });
 
     it('should not render confirm password field', () => {
@@ -178,7 +178,7 @@ describe('AuthForm', () => {
     it('should render all registration fields', () => {
       render(<AuthForm mode="register" onSubmit={mockOnSubmit} />);
 
-      expect(screen.getByLabelText(/表示名/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/ユーザー名/)).toBeInTheDocument();
       expect(screen.getByLabelText(/メールアドレス/)).toBeInTheDocument();
       expect(screen.getByLabelText(/^パスワード$/)).toBeInTheDocument();
       expect(screen.getByLabelText(/パスワード（確認）/)).toBeInTheDocument();
@@ -204,7 +204,7 @@ describe('AuthForm', () => {
         fireEvent.click(submitButton);
 
         await waitFor(() => {
-          expect(screen.getByText(/表示名は必須です/)).toBeInTheDocument();
+          expect(screen.getByText(/ユーザー名は必須です/)).toBeInTheDocument();
         });
 
         expect(mockOnSubmit).not.toHaveBeenCalled();
@@ -214,7 +214,7 @@ describe('AuthForm', () => {
         mockOnSubmit.mockResolvedValue(undefined);
         render(<AuthForm mode="register" onSubmit={mockOnSubmit} />);
 
-        const usernameInput = screen.getByLabelText(/表示名/);
+        const usernameInput = screen.getByLabelText(/ユーザー名/);
         await userEvent.type(usernameInput, 'a');
 
         const emailInput = screen.getByLabelText(/メールアドレス/);
@@ -237,14 +237,14 @@ describe('AuthForm', () => {
       it('should show error when username is too long', async () => {
         render(<AuthForm mode="register" onSubmit={mockOnSubmit} />);
 
-        const usernameInput = screen.getByLabelText(/表示名/);
+        const usernameInput = screen.getByLabelText(/ユーザー名/);
         await userEvent.type(usernameInput, 'a'.repeat(21));
 
         const submitButton = screen.getByRole('button', { name: /^登録$/ });
         fireEvent.click(submitButton);
 
         await waitFor(() => {
-          expect(screen.getByText(/表示名は20文字以内で入力してください/)).toBeInTheDocument();
+          expect(screen.getByText(/ユーザー名は20文字以内で入力してください/)).toBeInTheDocument();
         });
 
         expect(mockOnSubmit).not.toHaveBeenCalled();
@@ -253,14 +253,14 @@ describe('AuthForm', () => {
       it('should show error when username contains symbols', async () => {
         render(<AuthForm mode="register" onSubmit={mockOnSubmit} />);
 
-        const usernameInput = screen.getByLabelText(/表示名/);
+        const usernameInput = screen.getByLabelText(/ユーザー名/);
         await userEvent.type(usernameInput, 'test@user');
 
         const submitButton = screen.getByRole('button', { name: /^登録$/ });
         fireEvent.click(submitButton);
 
         await waitFor(() => {
-          expect(screen.getByText(/表示名に記号は使用できません/)).toBeInTheDocument();
+          expect(screen.getByText(/ユーザー名に記号は使用できません/)).toBeInTheDocument();
         });
 
         expect(mockOnSubmit).not.toHaveBeenCalled();
@@ -270,7 +270,7 @@ describe('AuthForm', () => {
         mockOnSubmit.mockResolvedValue(undefined);
         render(<AuthForm mode="register" onSubmit={mockOnSubmit} />);
 
-        const usernameInput = screen.getByLabelText(/表示名/);
+        const usernameInput = screen.getByLabelText(/ユーザー名/);
         await userEvent.type(usernameInput, '佐々木');
 
         const emailInput = screen.getByLabelText(/メールアドレス/);
@@ -299,7 +299,7 @@ describe('AuthForm', () => {
       it('should show error when passwords do not match', async () => {
         render(<AuthForm mode="register" onSubmit={mockOnSubmit} />);
 
-        const usernameInput = screen.getByLabelText(/表示名/);
+        const usernameInput = screen.getByLabelText(/ユーザー名/);
         await userEvent.type(usernameInput, 'testuser');
 
         const emailInput = screen.getByLabelText(/メールアドレス/);
@@ -324,7 +324,7 @@ describe('AuthForm', () => {
       it('should show error when password is too short in register form', async () => {
         render(<AuthForm mode="register" onSubmit={mockOnSubmit} />);
 
-        const usernameInput = screen.getByLabelText(/表示名/);
+        const usernameInput = screen.getByLabelText(/ユーザー名/);
         await userEvent.type(usernameInput, 'testuser');
 
         const emailInput = screen.getByLabelText(/メールアドレス/);
@@ -353,7 +353,7 @@ describe('AuthForm', () => {
 
         render(<AuthForm mode="register" onSubmit={mockOnSubmit} />);
 
-        const usernameInput = screen.getByLabelText(/表示名/);
+        const usernameInput = screen.getByLabelText(/ユーザー名/);
         await userEvent.type(usernameInput, 'testuser');
 
         const emailInput = screen.getByLabelText(/メールアドレス/);
@@ -387,7 +387,7 @@ describe('AuthForm', () => {
 
         render(<AuthForm mode="register" onSubmit={mockOnSubmit} />);
 
-        const usernameInput = screen.getByLabelText(/表示名/);
+        const usernameInput = screen.getByLabelText(/ユーザー名/);
         await userEvent.type(usernameInput, 'testuser');
 
         const emailInput = screen.getByLabelText(/メールアドレス/);

@@ -181,7 +181,7 @@ export default function AdminPage() {
               <form onSubmit={handleSubmit(onSubmitUsername)} className="space-y-4">
                 <div>
                   <label htmlFor="username" className="block text-sm font-medium text-gray-800 mb-1">
-                    ユーザー名(名字)
+                    ユーザー名
                   </label>
                   <input
                     type="text"

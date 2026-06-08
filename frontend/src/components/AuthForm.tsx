@@ -113,33 +113,33 @@ export default function AuthForm({ mode, onSubmit, isLoading = false }: AuthForm
           {!isLogin && (
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-800 mb-1">
-                表示名（お名前）
+                ユーザー名（表示名）
               </label>
               <input
                 type="text"
                 id="username"
                 autoComplete="name"
                 {...register('username', {
-                  required: '表示名は必須です',
+                  required: 'ユーザー名は必須です',
                   minLength: {
                     value: 1,
-                    message: '表示名は1文字以上で入力してください',
+                    message: 'ユーザー名は1文字以上で入力してください',
                   },
                   maxLength: {
                     value: 20,
-                    message: '表示名は20文字以内で入力してください',
+                    message: 'ユーザー名は20文字以内で入力してください',
                   },
                   validate: (value: string) => {
                     // 記号のみを禁止（ASCII記号と一般的な記号）
                     const symbolPattern = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~。、・「」『』【】〈〉《》（）！？＠＃＄％＆＊＋＝～｀]/;
                     if (symbolPattern.test(value)) {
-                      return '表示名に記号は使用できません';
+                      return 'ユーザー名に記号は使用できません';
                     }
                     return true;
                   },
                 })}
                 className={errors.username ? 'border-red-500' : ''}
-                placeholder="表示名を入力"
+                placeholder="ユーザー名を入力"
                 disabled={isLoading}
               />
               {errors.username && (
