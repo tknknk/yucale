@@ -48,7 +48,7 @@ docker-compose -f docker-compose.test.yml run --rm frontend-test
 - Spring Securityのform loginを使用（`/api/auth/login`）
 - セッションはSpring Session JDBCでPostgreSQLに永続化
 - ログインリクエストは`application/x-www-form-urlencoded`形式
-- `CustomUserDetailsService`はユーザー名またはメールアドレスの両方でログイン可能
+- `CustomUserDetailsService`はメールアドレスでログイン（`findByEmail`のみ。ユーザー名ではログイン不可）
 - CSRF保護: 一部エンドポイント除外（`/api/auth/**`, `/calendar.ics`, `/api/surveys/*/responses`）
 - レート制限: ログイン試行5回失敗で15分間ロック（`RateLimitFilter`）
 
@@ -101,6 +101,7 @@ frontend/src/
 | `DEFAULT_BELONGING_LIST` | 出欠調査の所属リスト（デフォルト: S,A,T,B） |
 | `DEFAULT_RESPONSE_OPTIONS` | 出欠調査の回答選択肢（デフォルト: 出席,欠席,未定） |
 | `APP_CORS_ALLOWED_ORIGINS` | CORS許可オリジン（カンマ区切り、デフォルト: `http://localhost:3000`）。本番ではCloudFront URLを指定。未設定だとAPIのPOSTが403になる |
+| `FRONTEND_URL` | サイトの公開URL（デフォルト: `http://localhost:3000`）。ICS内の予定リンクとDiscord通知のリンクに使用。本番ではCloudFront URLを指定。未設定だとこれらのURLがlocalhostになる |
 
 ### フロントエンド
 | 変数 | 説明 |

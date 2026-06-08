@@ -236,6 +236,8 @@ docker-compose -f docker-compose.prod.yml up -d
 | `SPRING_DATASOURCE_PASSWORD` | DBパスワード | postgres |
 | `DISCORD_WEBHOOK_URL` | Discord Webhook URL | - |
 | `ADMIN_EMAIL` | 管理者メールアドレス | - |
+| `APP_CORS_ALLOWED_ORIGINS` | CORS許可オリジン（カンマ区切り）。本番はCloudFront URL。未設定だとAPIのPOSTが403 | http://localhost:3000 |
+| `FRONTEND_URL` | サイトの公開URL。ICS内リンク・Discord通知リンクに使用。本番はCloudFront URL | http://localhost:3000 |
 | `DEFAULT_BELONGING_LIST` | 出欠調査の所属リスト | S,A,T,B |
 | `DEFAULT_RESPONSE_OPTIONS` | 出欠調査の回答選択肢 | 出席,欠席,未定 |
 

@@ -137,6 +137,9 @@ cd /opt/yucale
 # IMPORTANT: set CORS_ALLOWED_ORIGINS to the CloudFront URL, otherwise API
 # POSTs (login/register/etc.) are rejected with 403 (Invalid CORS request):
 #   CORS_ALLOWED_ORIGINS=https://xxxxx.cloudfront.net
+# Also set FRONTEND_URL to the same CloudFront URL, otherwise links inside the
+# ICS feed and Discord notifications point at http://localhost:3000:
+#   FRONTEND_URL=https://xxxxx.cloudfront.net
 # nginx also needs nginx.prod.conf present next to docker-compose.yml:
 #   sudo curl -o nginx.prod.conf https://raw.githubusercontent.com/tknknk/yucale/master/nginx.prod.conf
 
