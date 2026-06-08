@@ -27,6 +27,11 @@ DISCORD_WEBHOOK_URL="${discord_webhook_url}"
 CORS_ALLOWED_ORIGINS="${cors_allowed_origins}"
 GITHUB_REPO="${github_repo}"
 
+# Public site URL for links in notifications (e.g. the Discord "Review" link).
+# Reuse the first CORS origin (the public CloudFront URL) so links resolve to
+# the live site instead of localhost.
+FRONTEND_URL="$${CORS_ALLOWED_ORIGINS%%,*}"
+
 # -----------------------------------------------------------------------------
 # System Setup
 # -----------------------------------------------------------------------------
@@ -79,6 +84,7 @@ DB_PASSWORD=$DB_PASSWORD
 ADMIN_EMAIL=$ADMIN_EMAIL
 DISCORD_WEBHOOK_URL=$DISCORD_WEBHOOK_URL
 CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS
+FRONTEND_URL=$FRONTEND_URL
 AWS_REGION=$AWS_REGION
 S3_BUCKET_NAME=$S3_BUCKET_NAME
 TZ=Asia/Tokyo

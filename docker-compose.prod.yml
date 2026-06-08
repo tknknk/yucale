@@ -67,6 +67,10 @@ services:
       # CORS allowed origins (comma-separated). Set to the public CloudFront
       # origin in production, e.g. https://xxxxx.cloudfront.net
       APP_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      # Public site URL used for links in Discord notifications (e.g. the
+      # "Review" admin link). Set to the CloudFront URL in production; otherwise
+      # notifications point at http://localhost:3000.
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       # Production logging: INFO level only
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_YUCALE: INFO
