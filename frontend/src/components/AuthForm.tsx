@@ -93,6 +93,7 @@ export default function AuthForm({ mode, onSubmit, isLoading = false }: AuthForm
             <input
               type="email"
               id="email"
+              autoComplete="username"
               {...register('email', {
                 required: 'メールアドレスは必須です',
                 pattern: {
@@ -109,6 +110,44 @@ export default function AuthForm({ mode, onSubmit, isLoading = false }: AuthForm
             )}
           </div>
 
+          {!isLogin && (
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-800 mb-1">
+                表示名（お名前）
+              </label>
+              <input
+                type="text"
+                id="username"
+                autoComplete="name"
+                {...register('username', {
+                  required: '表示名は必須です',
+                  minLength: {
+                    value: 1,
+                    message: '表示名は1文字以上で入力してください',
+                  },
+                  maxLength: {
+                    value: 20,
+                    message: '表示名は20文字以内で入力してください',
+                  },
+                  validate: (value: string) => {
+                    // 記号のみを禁止（ASCII記号と一般的な記号）
+                    const symbolPattern = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~。、・「」『』【】〈〉《》（）！？＠＃＄％＆＊＋＝～｀]/;
+                    if (symbolPattern.test(value)) {
+                      return '表示名に記号は使用できません';
+                    }
+                    return true;
+                  },
+                })}
+                className={errors.username ? 'border-red-500' : ''}
+                placeholder="表示名を入力"
+                disabled={isLoading}
+              />
+              {errors.username && (
+                <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
+              )}
+            </div>
+          )}
+
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-800 mb-1">
               パスワード
@@ -117,6 +156,7 @@ export default function AuthForm({ mode, onSubmit, isLoading = false }: AuthForm
               <input
                 type={showPassword ? 'text' : 'password'}
                 id="password"
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
                 {...register('password', {
                   required: 'パスワードは必須です',
                   minLength: {
@@ -156,6 +196,7 @@ export default function AuthForm({ mode, onSubmit, isLoading = false }: AuthForm
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   id="confirmPassword"
+                  autoComplete="new-password"
                   {...register('confirmPassword', {
                     required: 'パスワードを再入力してください',
                     validate: (value) =>
@@ -181,43 +222,6 @@ export default function AuthForm({ mode, onSubmit, isLoading = false }: AuthForm
               </div>
               {errors.confirmPassword && (
                 <p className="mt-1 text-sm text-red-600">{errors.confirmPassword.message}</p>
-              )}
-            </div>
-          )}
-
-          {!isLogin && (
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-800 mb-1">
-                ユーザー名(名字)
-              </label>
-              <input
-                type="text"
-                id="username"
-                {...register('username', {
-                  required: 'ユーザー名は必須です',
-                  minLength: {
-                    value: 1,
-                    message: 'ユーザー名は1文字以上で入力してください',
-                  },
-                  maxLength: {
-                    value: 20,
-                    message: 'ユーザー名は20文字以内で入力してください',
-                  },
-                  validate: (value: string) => {
-                    // 記号のみを禁止（ASCII記号と一般的な記号）
-                    const symbolPattern = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~。、・「」『』【】〈〉《》（）！？＠＃＄％＆＊＋＝～｀]/;
-                    if (symbolPattern.test(value)) {
-                      return 'ユーザー名に記号は使用できません';
-                    }
-                    return true;
-                  },
-                })}
-                className={errors.username ? 'border-red-500' : ''}
-                placeholder="ユーザー名を入力"
-                disabled={isLoading}
-              />
-              {errors.username && (
-                <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
               )}
             </div>
           )}

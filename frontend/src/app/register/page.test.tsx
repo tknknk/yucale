@@ -55,7 +55,7 @@ describe('RegisterPage', () => {
       render(<RegisterPage />);
 
       expect(screen.getByText('アカウントを作成')).toBeInTheDocument();
-      expect(screen.getByLabelText(/ユーザー名/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/表示名/)).toBeInTheDocument();
       expect(screen.getByLabelText(/メールアドレス/)).toBeInTheDocument();
       expect(screen.getByLabelText(/^パスワード$/)).toBeInTheDocument();
       expect(screen.getByLabelText(/パスワード（確認）/)).toBeInTheDocument();
@@ -67,7 +67,7 @@ describe('RegisterPage', () => {
 
       render(<RegisterPage />);
 
-      const usernameInput = screen.getByLabelText(/ユーザー名/);
+      const usernameInput = screen.getByLabelText(/表示名/);
       await user.type(usernameInput, 'testuser');
 
       const emailInput = screen.getByLabelText(/メールアドレス/);
@@ -100,7 +100,7 @@ describe('RegisterPage', () => {
 
       render(<RegisterPage />);
 
-      const usernameInput = screen.getByLabelText(/ユーザー名/);
+      const usernameInput = screen.getByLabelText(/表示名/);
       await user.type(usernameInput, 'testuser');
 
       const emailInput = screen.getByLabelText(/メールアドレス/);
@@ -130,7 +130,7 @@ describe('RegisterPage', () => {
     it('should validate that passwords match', async () => {
       render(<RegisterPage />);
 
-      const usernameInput = screen.getByLabelText(/ユーザー名/);
+      const usernameInput = screen.getByLabelText(/表示名/);
       await user.type(usernameInput, 'testuser');
 
       const emailInput = screen.getByLabelText(/メールアドレス/);
@@ -224,7 +224,7 @@ describe('RegisterPage', () => {
 
       render(<RegisterPage />);
 
-      expect(screen.getByLabelText(/ユーザー名/)).toBeDisabled();
+      expect(screen.getByLabelText(/表示名/)).toBeDisabled();
       expect(screen.getByLabelText(/メールアドレス/)).toBeDisabled();
       expect(screen.getByLabelText(/^パスワード$/)).toBeDisabled();
       expect(screen.getByLabelText(/パスワード（確認）/)).toBeDisabled();
