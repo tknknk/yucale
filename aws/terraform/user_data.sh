@@ -36,6 +36,25 @@ FRONTEND_URL="$${CORS_ALLOWED_ORIGINS%%,*}"
 # System Setup
 # -----------------------------------------------------------------------------
 
+# Swap: the t4g.micro has ~1GB RAM and no swap by default. Without it the
+# backend JVM + Postgres + agents push the box into memory-reclaim thrashing
+# (kswapd0 burning CPU), making everything slow. A 2GB swapfile gives the
+# kernel headroom. Low swappiness keeps it as a safety margin, not a default.
+if [ ! -f /swapfile ]; then
+  fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  echo 'vm.swappiness=10' > /etc/sysctl.d/99-swappiness.conf
+  sysctl -w vm.swappiness=10
+fi
+
+# Remove the ECS container agent if present. ECS-optimized AMIs ship it
+# running, but this instance is managed via docker-compose (not ECS); the
+# idle agent wastes memory/CPU/IO trying to reach a cluster that isn't there.
+dnf remove -y ecs-init || true
+
 dnf update -y
 
 # SSM Agent (Session Manager access)
