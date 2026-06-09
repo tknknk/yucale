@@ -273,7 +273,7 @@ export default function SurveyResponseForm({
       {/* User Name */}
       <div>
         <label htmlFor="userName" className="block text-sm font-medium text-gray-800">
-          ユーザー名(表示名) <span className="text-red-500">*</span>
+          ユーザー名（表示名） <span className="text-red-500">*</span>
         </label>
         <div className="relative mt-1">
           <input
@@ -309,7 +309,13 @@ export default function SurveyResponseForm({
           )}
         </div>
         {isAuthenticated && (
-          <p className="mt-1 text-xs text-gray-500">ログイン中のため変更できません</p>
+          <p className="mt-1 text-xs text-gray-500">
+            ユーザー名は
+            <Link href="/user" className="text-primary-600 hover:text-primary-800 underline">
+              ユーザー設定
+            </Link>
+            から変更できます
+          </p>
         )}
         {errors.userName && (
           <p className="mt-1 text-sm text-red-600">{errors.userName.message}</p>
