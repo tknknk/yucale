@@ -120,6 +120,14 @@ api.interceptors.response.use(
       }
     }
 
+    // Surface the backend's error message (ApiResponse.message) as error.message
+    // so components that display err.message show a meaningful message instead
+    // of the generic axios text ("Request failed with status code 400").
+    const backendMessage = (error.response?.data as { message?: string } | undefined)?.message;
+    if (backendMessage && typeof backendMessage === 'string') {
+      error.message = backendMessage;
+    }
+
     return Promise.reject(error);
   }
 );
