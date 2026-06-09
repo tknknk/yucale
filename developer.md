@@ -99,6 +99,8 @@ docker-compose down -v
 | GET | `/api/schedules/upcoming` | 直近のスケジュール | 不要 |
 | GET | `/api/schedules/range` | 期間指定取得 | 不要 |
 | GET | `/api/schedules/split` | 過去/未来で分割取得 | 不要 |
+| GET | `/api/schedules/url/{urlId}` | URL IDでスケジュール取得 | 不要 |
+| GET | `/api/schedules/locations` | 場所候補一覧（最近使用順） | 必要 |
 
 ### ICS
 
@@ -150,6 +152,9 @@ docker-compose down -v
 | メソッド | エンドポイント | 説明 | 認証 |
 |---------|---------------|------|------|
 | GET | `/api/health` | ヘルスチェック | 不要 |
+| GET | `/api/health/detailed` | 詳細ヘルスチェック | 不要 |
+| GET | `/api/health/live` | Liveness | 不要 |
+| GET | `/api/health/ready` | Readiness | 不要 |
 
 ## テスト
 
@@ -179,7 +184,7 @@ npm test
 
 ### GitHub Actions
 
-`main` ブランチへの push 時に自動実行:
+`master` ブランチへの push 時に自動実行:
 
 | ワークフロー | トリガー | 処理 |
 |-------------|---------|------|
@@ -223,6 +228,12 @@ docker-compose -f docker-compose.prod.yml pull
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
+> `docker-compose.prod.yml` / `nginx.prod.conf` 自体を変更した場合は、EC2 上のファイルを
+> 再取得してから `up -d` する必要があります（イメージ更新だけなら `pull` + `up -d` で十分）:
+> ```bash
+> sudo curl -fL https://raw.githubusercontent.com/tknknk/yucale/master/docker-compose.prod.yml -o docker-compose.yml
+> ```
+
 詳細は [aws/README.md](aws/README.md) を参照してください。
 
 ## 環境変数
@@ -240,6 +251,9 @@ docker-compose -f docker-compose.prod.yml up -d
 | `FRONTEND_URL` | サイトの公開URL。ICS内リンク・Discord通知リンクに使用。本番はCloudFront URL | http://localhost:3000 |
 | `DEFAULT_BELONGING_LIST` | 出欠調査の所属リスト | S,A,T,B |
 | `DEFAULT_RESPONSE_OPTIONS` | 出欠調査の回答選択肢 | 出席,欠席,未定 |
+| `DEFAULT_ATTENDING_OPTIONS` | 出席扱いとする回答選択肢 | 出席 |
+| `LOGIN_MAX_FAILED_ATTEMPTS` | ログイン施錠までの連続失敗回数 | 5 |
+| `LOGIN_LOCK_DURATION_MINUTES` | ログイン施錠時間（分） | 15 |
 
 ### フロントエンド
 
