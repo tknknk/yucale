@@ -272,6 +272,11 @@ export default function SurveyResultsTable({ survey, onResponseDeleted }: Survey
                                   {response.freeText}
                                 </div>
                               )}
+                              {survey.enableCheckbox && response.checkboxChecked && (
+                                <div className="text-xs text-primary-700 mt-1">
+                                  ☑ {survey.checkboxLabel}
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <span className="text-gray-400">-</span>

@@ -25,6 +25,7 @@ interface FormData {
     [detailId: string]: {
       responseOption: string;
       freeText: string;
+      checkboxChecked: boolean;
     };
   };
 }
@@ -54,6 +55,7 @@ export default function SurveyResponseForm({
         responses[detail.id.toString()] = {
           responseOption: existing?.responseOption || '',
           freeText: existing?.freeText || '',
+          checkboxChecked: existing?.checkboxChecked ?? false,
         };
       }
     }
@@ -106,6 +108,7 @@ export default function SurveyResponseForm({
           surveyDetailId: parseInt(detailId, 10),
           responseOption: response.responseOption || undefined,
           freeText: response.freeText || undefined,
+          checkboxChecked: survey.enableCheckbox ? !!response.checkboxChecked : undefined,
         })),
       };
 
@@ -399,6 +402,19 @@ export default function SurveyResponseForm({
                   disabled={isSubmitting || isResponseDisabled}
                 />
               </div>
+            )}
+
+            {/* Checkbox */}
+            {survey.enableCheckbox && survey.checkboxLabel && (
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  {...register(`responses.${detail.id}.checkboxChecked`)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  disabled={isSubmitting || isResponseDisabled}
+                />
+                <span className="text-sm text-gray-800">{survey.checkboxLabel}</span>
+              </label>
             )}
           </div>
         ))}

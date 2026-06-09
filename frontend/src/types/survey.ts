@@ -11,6 +11,8 @@ export interface Survey {
   belongingList: string[];
   responseOptions: ResponseOption[];
   enableFreetext: boolean;
+  enableCheckbox: boolean;
+  checkboxLabel?: string;
   deadlineAt?: string;
   softDue?: boolean;
   createdByUsername?: string;
@@ -37,6 +39,7 @@ export interface SurveyResponse {
   belonging?: string;
   responseOption?: string;
   freeText?: string;
+  checkboxChecked?: boolean;
   createdAt: string;
   updatedAt?: string;
 }
@@ -47,6 +50,8 @@ export interface CreateSurveyRequest {
   belongingList?: string[];
   responseOptions?: ResponseOption[];
   enableFreetext?: boolean;
+  enableCheckbox?: boolean;
+  checkboxLabel?: string;
   deadlineAt?: string;
   softDue?: boolean;
   details: SurveyDetailRequest[];
@@ -67,9 +72,11 @@ export interface ResponseItem {
   surveyDetailId: number;
   responseOption?: string;
   freeText?: string;
+  checkboxChecked?: boolean;
 }
 
 export interface SurveyDefaults {
   belongingList: string[];
   responseOptions: ResponseOption[];
+  defaultCheckboxLabel?: string;
 }
