@@ -80,6 +80,15 @@ dnf install -y amazon-cloudwatch-agent
 # Allow ec2-user to run docker
 usermod -aG docker ec2-user
 
+# Allow the SSM Session Manager user (ssm-user) to run docker without sudo.
+# SSM connects as ssm-user (not ec2-user) and creates that account lazily on the
+# first session, reusing it if it already exists. Pre-create it here, add it to
+# the docker group, and keep the passwordless-sudo entry SSM normally writes.
+id ssm-user >/dev/null 2>&1 || useradd -m ssm-user
+usermod -aG docker ssm-user
+echo 'ssm-user ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ssm-agent-users
+chmod 440 /etc/sudoers.d/ssm-agent-users
+
 # -----------------------------------------------------------------------------
 # Application Setup (single source of truth: the GitHub repo)
 # -----------------------------------------------------------------------------
