@@ -101,6 +101,7 @@ frontend/src/
 | `DEFAULT_BELONGING_LIST` | 出欠調査の所属リスト（デフォルト: S,A,T,B） |
 | `DEFAULT_RESPONSE_OPTIONS` | 出欠調査の回答選択肢（デフォルト: 出席,欠席,未定） |
 | `DEFAULT_ATTENDING_OPTIONS` | 出席扱いとする回答選択肢（デフォルト: 出席） |
+| `DEFAULT_CHECKBOX_LABEL` | 出欠調査作成時のチェックボックスのデフォルトラベル（デフォルト: 空） |
 | `LOGIN_MAX_FAILED_ATTEMPTS` | ログイン施錠までの連続失敗回数（デフォルト: 5） |
 | `LOGIN_LOCK_DURATION_MINUTES` | ログイン施錠時間・分（デフォルト: 15） |
 | `APP_CORS_ALLOWED_ORIGINS` | CORS許可オリジン（カンマ区切り、デフォルト: `http://localhost:3000`）。本番ではCloudFront URLを指定。未設定だとAPIのPOSTが403になる |
