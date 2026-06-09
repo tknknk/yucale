@@ -30,6 +30,11 @@ public class CreateSurveyRequest {
 
     private Boolean enableFreetext;
 
+    private Boolean enableCheckbox;
+
+    @Size(max = 100, message = "Checkbox label must not exceed 100 characters")
+    private String checkboxLabel;
+
     private LocalDateTime deadlineAt;
 
     private Boolean softDue;

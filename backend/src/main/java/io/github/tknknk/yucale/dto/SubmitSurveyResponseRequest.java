@@ -37,5 +37,7 @@ public class SubmitSurveyResponseRequest {
         private String responseOption;
 
         private String freeText;
+
+        private Boolean checkboxChecked;
     }
 }

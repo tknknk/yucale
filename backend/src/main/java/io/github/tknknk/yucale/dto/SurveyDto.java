@@ -21,6 +21,8 @@ public class SurveyDto {
     private List<String> belongingList;
     private List<ResponseOptionDto> responseOptions;
     private Boolean enableFreetext;
+    private Boolean enableCheckbox;
+    private String checkboxLabel;
     private LocalDateTime deadlineAt;
     private Boolean softDue;
     private String createdByUsername;

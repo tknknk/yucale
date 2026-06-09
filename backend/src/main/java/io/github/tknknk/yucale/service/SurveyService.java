@@ -44,6 +44,9 @@ public class SurveyService {
     @Value("${app.survey.default-attending-options:出席}")
     private String defaultAttendingOptions;
 
+    @Value("${app.survey.default-checkbox-label:}")
+    private String defaultCheckboxLabel;
+
     /**
      * Get default survey settings
      */
@@ -61,6 +64,7 @@ public class SurveyService {
                         .build())
                 .collect(Collectors.toList());
         defaults.put("responseOptions", responseOptions);
+        defaults.put("defaultCheckboxLabel", defaultCheckboxLabel);
 
         return defaults;
     }
@@ -125,6 +129,8 @@ public class SurveyService {
                 .belongingList(joinList(request.getBelongingList()))
                 .responseOptions(responseOptionsToJson(request.getResponseOptions()))
                 .enableFreetext(request.getEnableFreetext() != null ? request.getEnableFreetext() : true)
+                .enableCheckbox(Boolean.TRUE.equals(request.getEnableCheckbox()))
+                .checkboxLabel(request.getCheckboxLabel())
                 .deadlineAt(request.getDeadlineAt())
                 .softDue(request.getSoftDue())
                 .createdBy(currentUser)
@@ -168,6 +174,8 @@ public class SurveyService {
         survey.setBelongingList(joinList(request.getBelongingList()));
         survey.setResponseOptions(responseOptionsToJson(request.getResponseOptions()));
         survey.setEnableFreetext(request.getEnableFreetext() != null ? request.getEnableFreetext() : true);
+        survey.setEnableCheckbox(Boolean.TRUE.equals(request.getEnableCheckbox()));
+        survey.setCheckboxLabel(request.getCheckboxLabel());
         survey.setDeadlineAt(request.getDeadlineAt());
         survey.setSoftDue(request.getSoftDue());
 
@@ -312,6 +320,7 @@ public class SurveyService {
                 response.setBelonging(request.getBelonging());
                 response.setResponseOption(item.getResponseOption());
                 response.setFreeText(item.getFreeText());
+                response.setCheckboxChecked(item.getCheckboxChecked());
                 response.setUpdatedAt(LocalDateTime.now());
             } else {
                 response = SurveyResponse.builder()
@@ -320,6 +329,7 @@ public class SurveyService {
                         .belonging(request.getBelonging())
                         .responseOption(item.getResponseOption())
                         .freeText(item.getFreeText())
+                        .checkboxChecked(item.getCheckboxChecked())
                         .build();
             }
 
@@ -518,6 +528,8 @@ public class SurveyService {
                 .belongingList(parseCommaSeparated(survey.getBelongingList()))
                 .responseOptions(parseResponseOptions(survey.getResponseOptions()))
                 .enableFreetext(survey.getEnableFreetext())
+                .enableCheckbox(survey.getEnableCheckbox())
+                .checkboxLabel(survey.getCheckboxLabel())
                 .deadlineAt(survey.getDeadlineAt())
                 .softDue(survey.getSoftDue())
                 .createdByUsername(survey.getCreatedBy() != null ? survey.getCreatedBy().getUsername() : null)
@@ -570,6 +582,7 @@ public class SurveyService {
                 .belonging(response.getBelonging())
                 .responseOption(response.getResponseOption())
                 .freeText(response.getFreeText())
+                .checkboxChecked(response.getCheckboxChecked())
                 .createdAt(response.getCreatedAt())
                 .updatedAt(response.getUpdatedAt())
                 .build();

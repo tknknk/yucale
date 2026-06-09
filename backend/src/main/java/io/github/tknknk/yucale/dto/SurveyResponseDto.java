@@ -19,6 +19,7 @@ public class SurveyResponseDto {
     private String belonging;
     private String responseOption;
     private String freeText;
+    private Boolean checkboxChecked;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

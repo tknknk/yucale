@@ -85,6 +85,8 @@ CREATE TABLE surveys (
   belonging_list TEXT,
   response_options JSONB,
   enable_freetext BOOLEAN DEFAULT TRUE,
+  enable_checkbox BOOLEAN DEFAULT FALSE,
+  checkbox_label VARCHAR(100),
   deadline_at TIMESTAMP,
   created_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -115,6 +117,7 @@ CREATE TABLE survey_responses (
   belonging VARCHAR(50),
   response_option VARCHAR(50),
   free_text TEXT,
+  checkbox_checked BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP,
   UNIQUE(survey_detail_id, user_name)

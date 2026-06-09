@@ -50,6 +50,9 @@ public class SurveyResponse {
     @Column(name = "free_text", columnDefinition = "TEXT")
     private String freeText;
 
+    @Column(name = "checkbox_checked")
+    private Boolean checkboxChecked;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

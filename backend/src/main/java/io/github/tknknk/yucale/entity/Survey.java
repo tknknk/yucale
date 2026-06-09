@@ -55,6 +55,13 @@ public class Survey {
     @Builder.Default
     private Boolean enableFreetext = true;
 
+    @Column(name = "enable_checkbox")
+    @Builder.Default
+    private Boolean enableCheckbox = false;
+
+    @Column(name = "checkbox_label", length = 100)
+    private String checkboxLabel;
+
     @Column(name = "deadline_at")
     private LocalDateTime deadlineAt;
 

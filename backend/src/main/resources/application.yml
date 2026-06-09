@@ -61,6 +61,7 @@ app:
     default-belonging-list: ${DEFAULT_BELONGING_LIST:S,A,T,B}
     default-response-options: ${DEFAULT_RESPONSE_OPTIONS:出席,欠席,未定}
     default-attending-options: ${DEFAULT_ATTENDING_OPTIONS:出席}
+    default-checkbox-label: ${DEFAULT_CHECKBOX_LABEL:}
 
 ics:
   output:
