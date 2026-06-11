@@ -98,5 +98,5 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=/api
             NEXT_PUBLIC_ICS_FILENAME=calendar.ics
-            NEXT_PUBLIC_DEFAULT_START_TIME=09:00
-            NEXT_PUBLIC_DEFAULT_END_TIME=10:00
+            NEXT_PUBLIC_DEFAULT_START_TIME=18:00
+            NEXT_PUBLIC_DEFAULT_END_TIME=21:00
