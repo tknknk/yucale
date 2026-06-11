@@ -32,7 +32,10 @@ server:
     session:
       cookie:
         http-only: true
-        secure: false
+        # Secure attribute: false for local HTTP dev, true in production (set
+        # APP_COOKIE_SECURE=true) where the browser reaches the site over HTTPS.
+        # Kept in sync with the CSRF cookie via app.cookie.secure in SecurityConfig.
+        secure: ${app.cookie.secure}
         same-site: lax
         max-age: 90d
 
@@ -53,10 +56,18 @@ app:
     email: ${ADMIN_EMAIL:}
   frontend:
     url: ${FRONTEND_URL:http://localhost:3000}
+  cookie:
+    # Secure flag for session + CSRF cookies. false for local HTTP, true in prod.
+    secure: ${APP_COOKIE_SECURE:false}
   security:
     login:
       max-failed-attempts: ${LOGIN_MAX_FAILED_ATTEMPTS:5}
       lock-duration-minutes: ${LOGIN_LOCK_DURATION_MINUTES:15}
+    # Number of trusted reverse-proxy hops in front of the app. The client IP is
+    # taken from that fixed position in [X-Forwarded-For..., remoteAddr], so a
+    # client cannot spoof its IP to bypass rate limiting. 0 = trust none (use the
+    # direct peer). Production behind CloudFront+nginx: set APP_TRUSTED_PROXY_COUNT=2.
+    trusted-proxy-count: ${APP_TRUSTED_PROXY_COUNT:0}
   survey:
     default-belonging-list: ${DEFAULT_BELONGING_LIST:S,A,T,B}
     default-response-options: ${DEFAULT_RESPONSE_OPTIONS:出席,欠席,未定}

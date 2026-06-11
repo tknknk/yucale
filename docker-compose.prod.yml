@@ -72,6 +72,13 @@ services:
       # "Review" admin link). Set to the CloudFront URL in production; otherwise
       # notifications point at http://localhost:3000.
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      # Mark session + CSRF cookies Secure so browsers only send them over HTTPS.
+      # The viewer reaches CloudFront over HTTPS, so this is safe in production.
+      APP_COOKIE_SECURE: ${APP_COOKIE_SECURE:-true}
+      # Trusted reverse-proxy hops in front of the backend: CloudFront edge + nginx.
+      # Used to derive the real client IP from X-Forwarded-For for rate limiting,
+      # so a client cannot spoof X-Forwarded-For to bypass the per-IP limits.
+      APP_TRUSTED_PROXY_COUNT: ${APP_TRUSTED_PROXY_COUNT:-2}
       # Production logging: INFO level only
       LOGGING_LEVEL_ROOT: INFO
       LOGGING_LEVEL_COM_YUCALE: INFO

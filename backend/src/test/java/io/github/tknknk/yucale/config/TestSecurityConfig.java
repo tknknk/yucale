@@ -18,13 +18,24 @@ import java.io.IOException;
 public class TestSecurityConfig {
 
     /**
+     * テスト用のClientIpResolver
+     * @WebMvcTestスライスは@ComponentのClientIpResolverを読み込まないため、
+     * Filter Beanとして自動登録されるRequestLoggingFilterの依存を満たすために提供する。
+     */
+    @Bean
+    @Primary
+    public ClientIpResolver clientIpResolver() {
+        return new ClientIpResolver(0);
+    }
+
+    /**
      * テスト用のRateLimitFilter
      * レート制限を行わず、常にリクエストを通過させる
      */
     @Bean
     @Primary
     public RateLimitFilter rateLimitFilter() {
-        return new RateLimitFilter() {
+        return new RateLimitFilter(new ClientIpResolver(0)) {
             @Override
             protected void doFilterInternal(HttpServletRequest request,
                                             HttpServletResponse response,

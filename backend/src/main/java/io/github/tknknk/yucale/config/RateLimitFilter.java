@@ -23,12 +23,18 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 
+    private final ClientIpResolver clientIpResolver;
+
+    public RateLimitFilter(ClientIpResolver clientIpResolver) {
+        this.clientIpResolver = clientIpResolver;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
 
-        String clientIp = getClientIp(request);
+        String clientIp = clientIpResolver.resolve(request);
         String path = request.getRequestURI();
         String method = request.getMethod();
 
@@ -50,14 +56,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"success\":false,\"message\":\"リクエストが多すぎます。しばらくしてから再度お試しください。\"}");
         }
-    }
-
-    private String getClientIp(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
     }
 
     private String getBucketCategory(String path) {

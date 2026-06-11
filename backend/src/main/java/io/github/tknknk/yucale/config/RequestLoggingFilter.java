@@ -32,6 +32,12 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
     private static final String USER_KEY = "user";
 
+    private final ClientIpResolver clientIpResolver;
+
+    public RequestLoggingFilter(ClientIpResolver clientIpResolver) {
+        this.clientIpResolver = clientIpResolver;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -45,7 +51,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         }
 
         String method = request.getMethod();
-        String clientIp = getClientIp(request);
+        String clientIp = clientIpResolver.resolve(request);
         long startTime = System.currentTimeMillis();
 
         // Log OPTIONS at DEBUG level to reduce noise
@@ -102,11 +108,4 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         }
     }
 
-    private String getClientIp(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
 }

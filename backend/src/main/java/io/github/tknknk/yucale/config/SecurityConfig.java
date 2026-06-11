@@ -51,6 +51,16 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:3000}")
     private String allowedOrigins;
 
+    /**
+     * Whether cookies (session + CSRF token) should carry the Secure attribute,
+     * so browsers only send them over HTTPS. Defaults to false for local HTTP
+     * development; MUST be true in production (set APP_COOKIE_SECURE=true), where
+     * the viewer connects to CloudFront over HTTPS. Kept in sync with the
+     * server.servlet.session.cookie.secure property in application.yml.
+     */
+    @Value("${app.cookie.secure:false}")
+    private boolean cookieSecure;
+
     public SecurityConfig(ObjectMapper objectMapper, RateLimitFilter rateLimitFilter) {
         this.objectMapper = objectMapper;
         this.rateLimitFilter = rateLimitFilter;
@@ -61,10 +71,15 @@ public class SecurityConfig {
         CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
         requestHandler.setCsrfRequestAttributeName("_csrf");
 
+        // CSRF token cookie is readable by JS (httpOnly=false) for the SPA double-submit
+        // pattern. Mark it Secure in production so it is never sent over plain HTTP.
+        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        csrfTokenRepository.setCookieCustomizer(cookie -> cookie.secure(cookieSecure));
+
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf
-                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRepository(csrfTokenRepository)
                 .csrfTokenRequestHandler(requestHandler)
                 // Disable CSRF for:
                 // 1. Public POST endpoints (users cannot obtain CSRF token before authentication)

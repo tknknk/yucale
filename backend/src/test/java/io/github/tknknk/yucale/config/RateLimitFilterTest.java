@@ -29,7 +29,10 @@ class RateLimitFilterTest {
 
     @BeforeEach
     void setUp() {
-        rateLimitFilter = new RateLimitFilter();
+        // trustedProxyCount=1 so the right-most X-Forwarded-For entry is treated
+        // as a trusted proxy and the entry before it as the client (matches the
+        // X-Forwarded-For tests below); with no header it falls back to remoteAddr.
+        rateLimitFilter = new RateLimitFilter(new ClientIpResolver(1));
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         filterChain = mock(FilterChain.class);
@@ -224,15 +227,16 @@ class RateLimitFilterTest {
     class XForwardedForTests {
 
         @Test
-        @DisplayName("X-Forwarded-ForヘッダーからクライアントIPを取得する")
-        void xForwardedFor_usesFirstIp() throws ServletException, IOException {
-            // Arrange
+        @DisplayName("信頼するプロキシ位置のクライアントIPでレート制限される")
+        void xForwardedFor_usesTrustedClientIp() throws ServletException, IOException {
+            // Arrange: with trustedProxyCount=1 the direct peer is the only trusted
+            // hop, so the resolved client is the last X-Forwarded-For entry.
             request.setMethod("POST");
             request.setRequestURI("/api/auth/login");
-            request.setRemoteAddr("10.0.0.1"); // プロキシIP
-            request.addHeader("X-Forwarded-For", "203.0.113.1, 70.41.3.18, 150.172.238.178");
+            request.setRemoteAddr("10.0.0.1"); // direct peer (e.g. nginx)
+            request.addHeader("X-Forwarded-For", "203.0.113.1, 70.41.3.18");
 
-            // Act - 203.0.113.1から5回
+            // Act - 5回
             for (int i = 0; i < 5; i++) {
                 MockHttpServletResponse freshResponse = new MockHttpServletResponse();
                 rateLimitFilter.doFilterInternal(request, freshResponse, filterChain);
@@ -243,6 +247,37 @@ class RateLimitFilterTest {
             rateLimitFilter.doFilterInternal(request, sixthResponse, filterChain);
 
             // Assert
+            assertThat(sixthResponse.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        }
+
+        @Test
+        @DisplayName("左側のX-Forwarded-For値を詐称してもレート制限は回避できない")
+        void xForwardedFor_spoofedPrefixCannotBypassLimit() throws ServletException, IOException {
+            // Arrange: trustedProxyCount=1, so the resolved client is the last XFF
+            // entry (203.0.113.1). The attacker varies the spoofable prefix each
+            // request, which must NOT create a separate rate-limit bucket.
+
+            // Act - 5 requests, each with a different spoofed prefix
+            for (int i = 0; i < 5; i++) {
+                MockHttpServletRequest req = new MockHttpServletRequest();
+                req.setMethod("POST");
+                req.setRequestURI("/api/auth/login");
+                req.setRemoteAddr("10.0.0.1");
+                req.addHeader("X-Forwarded-For", "9.9.9." + i + ", 203.0.113.1");
+                MockHttpServletResponse freshResponse = new MockHttpServletResponse();
+                rateLimitFilter.doFilterInternal(req, freshResponse, filterChain);
+            }
+
+            // 6th request, yet another spoofed prefix → still the same bucket
+            MockHttpServletRequest sixthReq = new MockHttpServletRequest();
+            sixthReq.setMethod("POST");
+            sixthReq.setRequestURI("/api/auth/login");
+            sixthReq.setRemoteAddr("10.0.0.1");
+            sixthReq.addHeader("X-Forwarded-For", "8.8.8.8, 203.0.113.1");
+            MockHttpServletResponse sixthResponse = new MockHttpServletResponse();
+            rateLimitFilter.doFilterInternal(sixthReq, sixthResponse, filterChain);
+
+            // Assert - spoofing the prefix did not create a new bucket
             assertThat(sixthResponse.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
         }
 
