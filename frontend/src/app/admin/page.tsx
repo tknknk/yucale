@@ -119,12 +119,12 @@ export default function AdminPage() {
 
       {/* Tab Navigation */}
       <div className="border-b border-gray-200 mb-6">
-        <nav className="flex gap-4">
+        <nav className="flex gap-2 sm:gap-4 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+              className={`flex flex-shrink-0 items-center gap-2 px-2 sm:px-4 py-3 border-b-2 whitespace-nowrap transition-colors ${
                 activeTab === tab.id
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-gray-800 hover:text-gray-800 hover:border-gray-300'
@@ -141,7 +141,7 @@ export default function AdminPage() {
       <div>
         {activeTab === 'requests' && (
           <div>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-6">
               <h3 className="text-xl font-semibold text-gray-800">ロールリクエスト</h3>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input

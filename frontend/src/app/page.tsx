@@ -124,7 +124,7 @@ export default function HomePage() {
       {/* Show login prompt for non-authenticated or NO_ROLE users */}
       {!canViewSchedules && (
         <section className="mb-8">
-          <div className="bg-white border border-primary-100/50 rounded-2xl p-8 text-center shadow-soft">
+          <div className="bg-white border border-primary-100/50 rounded-2xl p-6 sm:p-8 text-center shadow-soft">
             <h2 className="text-2xl font-bold text-gray-800 mb-3">
               ゆカレへようこそ
             </h2>
@@ -134,16 +134,16 @@ export default function HomePage() {
                 : 'すべての予定を表示するにはロールをリクエストしてください。'}
             </p>
             {!isAuthenticated && (
-              <div className="flex justify-center gap-4">
+              <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
                 <a
                   href="/login"
-                  className="inline-block px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl hover:from-primary-700 hover:to-primary-600 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95 font-medium"
+                  className="inline-block whitespace-nowrap px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl hover:from-primary-700 hover:to-primary-600 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95 font-medium"
                 >
                   ログイン
                 </a>
                 <a
                   href="/register"
-                  className="inline-block px-6 py-2.5 bg-white text-primary-600 border border-primary-200 rounded-xl hover:bg-primary-50 hover:border-primary-300 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95 font-medium"
+                  className="inline-block whitespace-nowrap px-6 py-2.5 bg-white text-primary-600 border border-primary-200 rounded-xl hover:bg-primary-50 hover:border-primary-300 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95 font-medium"
                 >
                   登録
                 </a>
@@ -152,7 +152,7 @@ export default function HomePage() {
             {isAuthenticated && user?.role === 'NO_ROLE' && (
               <a
                 href="/user"
-                className="inline-block px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl hover:from-primary-700 hover:to-primary-600 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95 font-medium"
+                className="inline-block whitespace-nowrap px-6 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white rounded-xl hover:from-primary-700 hover:to-primary-600 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95 font-medium"
               >
                 ロールをリクエスト
               </a>

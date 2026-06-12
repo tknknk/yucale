@@ -55,7 +55,7 @@ export default function CalendarSubscribeLink({ inline = false }: CalendarSubscr
     <div className={inline ? "relative" : "fixed bottom-6 right-6 z-50"} ref={popupRef}>
       {/* Popup content */}
       {isOpen && (
-        <div className={`absolute ${inline ? 'top-full mt-2 right-0' : 'bottom-14 right-0'} w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 animate-fade-in z-50`}>
+        <div className={`absolute ${inline ? 'top-full mt-2 right-0' : 'bottom-14 right-0'} w-80 max-w-[calc(100vw-3rem)] bg-white border border-gray-200 rounded-lg shadow-lg p-4 animate-fade-in z-50`}>
           <div className="flex items-start gap-3">
             <div className="flex-shrink-0">
               <svg
