@@ -20,6 +20,16 @@ function isSameOrigin(url: string): boolean {
   }
 }
 
+// リンクの表示ラベル（ドメイン名）を取得する関数。
+// パースできない場合は元のURLをそのまま表示する。
+function getLinkLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 // テキスト内のURLをリンクに変換する関数
 function linkifyText(text: string): ReactNode[] {
   const parts = text.split(URL_REGEX);
@@ -34,10 +44,11 @@ function linkifyText(text: string): ReactNode[] {
           href={part}
           target={sameOrigin ? undefined : '_blank'}
           rel={sameOrigin ? undefined : 'noopener noreferrer'}
-          className="text-primary-600 hover:text-primary-700 underline"
+          className="text-primary-600 hover:text-primary-700 underline break-all"
+          title={part}
           onClick={(e) => e.stopPropagation()}
         >
-          {part}
+          {getLinkLabel(part)}
         </a>
       );
     }
@@ -313,7 +324,7 @@ export default function ScheduleCard({
                   d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
                 />
               </svg>
-              <span className="whitespace-pre-wrap">{linkifyText(schedule.song)}</span>
+              <span className="whitespace-pre-wrap break-words min-w-0">{linkifyText(schedule.song)}</span>
             </div>
           )}
 
@@ -337,7 +348,7 @@ export default function ScheduleCard({
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              <span className="whitespace-pre-wrap">{linkifyText(schedule.description)}</span>
+              <span className="whitespace-pre-wrap break-words min-w-0">{linkifyText(schedule.description)}</span>
             </p>
           )}
 
@@ -361,7 +372,7 @@ export default function ScheduleCard({
                   d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                 />
               </svg>
-              <span className="whitespace-pre-wrap">{linkifyText(schedule.attendees)}</span>
+              <span className="whitespace-pre-wrap break-words min-w-0">{linkifyText(schedule.attendees)}</span>
             </div>
           )}
 
@@ -385,7 +396,7 @@ export default function ScheduleCard({
                   d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
                 />
               </svg>
-              <span className="whitespace-pre-wrap">{linkifyText(schedule.recording)}</span>
+              <span className="whitespace-pre-wrap break-words min-w-0">{linkifyText(schedule.recording)}</span>
             </div>
           )}
 
