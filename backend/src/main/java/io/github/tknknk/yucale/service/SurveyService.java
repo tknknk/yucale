@@ -164,10 +164,10 @@ public class SurveyService {
         Survey survey = surveyRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("アンケートが見つかりません"));
 
-        // Get old schedule IDs before deleting details
-        List<Long> oldScheduleIds = surveyDetailRepository.findBySurveyId(id).stream()
-                .map(d -> d.getSchedule().getId())
-                .collect(Collectors.toList());
+        // Map existing details by schedule ID so kept schedules can be reused
+        // (preserving their survey_responses) instead of deleted and recreated.
+        Map<Long, SurveyDetail> existingByScheduleId = surveyDetailRepository.findBySurveyId(id).stream()
+                .collect(Collectors.toMap(d -> d.getSchedule().getId(), d -> d));
 
         survey.setTitle(request.getTitle());
         survey.setDescription(request.getDescription());
@@ -179,32 +179,42 @@ public class SurveyService {
         survey.setDeadlineAt(request.getDeadlineAt());
         survey.setSoftDue(request.getSoftDue());
 
-        // Remove existing details and add new ones
-        surveyDetailRepository.deleteBySurveyId(id);
-
+        // Reconcile details: reuse existing ones for kept schedules, add new ones,
+        // and delete the ones whose schedule was removed.
         Set<Long> newScheduleIds = new HashSet<>();
         for (CreateSurveyRequest.SurveyDetailRequest detailRequest : request.getDetails()) {
-            Schedule schedule = scheduleRepository.findById(detailRequest.getScheduleId())
-                    .orElseThrow(() -> new EntityNotFoundException("スケジュールが見つかりません"));
+            Long scheduleId = detailRequest.getScheduleId();
+            newScheduleIds.add(scheduleId);
+            boolean mandatory = detailRequest.getMandatory() != null && detailRequest.getMandatory();
 
-            SurveyDetail detail = SurveyDetail.builder()
-                    .survey(survey)
-                    .schedule(schedule)
-                    .mandatory(detailRequest.getMandatory() != null ? detailRequest.getMandatory() : false)
-                    .build();
+            SurveyDetail existing = existingByScheduleId.get(scheduleId);
+            if (existing != null) {
+                // Kept schedule: update only mandatory, preserving existing responses
+                existing.setMandatory(mandatory);
+            } else {
+                Schedule schedule = scheduleRepository.findById(scheduleId)
+                        .orElseThrow(() -> new EntityNotFoundException("スケジュールが見つかりません"));
 
-            surveyDetailRepository.save(detail);
-            newScheduleIds.add(detailRequest.getScheduleId());
-        }
+                SurveyDetail detail = SurveyDetail.builder()
+                        .survey(survey)
+                        .schedule(schedule)
+                        .mandatory(mandatory)
+                        .build();
 
-        // Clear attendees for schedules that were removed from the survey
-        for (Long scheduleId : oldScheduleIds) {
-            if (!newScheduleIds.contains(scheduleId)) {
-                scheduleRepository.updateAttendees(scheduleId, null);
+                surveyDetailRepository.save(detail);
             }
         }
 
-        // Update attendees for all schedules in this survey (responses were deleted, so this will recalculate)
+        // Delete details for schedules removed from the survey (cascades to responses)
+        // and clear their attendees on the schedule.
+        for (Map.Entry<Long, SurveyDetail> entry : existingByScheduleId.entrySet()) {
+            if (!newScheduleIds.contains(entry.getKey())) {
+                surveyDetailRepository.delete(entry.getValue());
+                scheduleRepository.updateAttendees(entry.getKey(), null);
+            }
+        }
+
+        // Recalculate attendees for all schedules remaining in this survey
         Survey updated = surveyRepository.save(survey);
         Survey surveyWithDetails = surveyRepository.findByUrlIdWithDetails(updated.getUrlId()).orElse(updated);
         updateScheduleAttendees(surveyWithDetails);

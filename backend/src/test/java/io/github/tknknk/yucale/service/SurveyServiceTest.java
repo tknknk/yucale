@@ -931,10 +931,45 @@ class SurveyServiceTest {
             // 実行
             SurveyDto result = surveyService.updateSurvey(1L, request);
 
-            // 検証
-            verify(surveyDetailRepository).deleteBySurveyId(1L);
+            // 検証: 外されたスケジュール(1L)のdetailは削除され、attendeesがクリアされる
+            verify(surveyDetailRepository).delete(testDetail);
             verify(scheduleRepository).updateAttendees(1L, null);  // 古いスケジュールのattendeesをクリア
             assertThat(result).isNotNull();
+        }
+
+        @Test
+        @DisplayName("残したスケジュールのdetailは再作成されず、mandatoryのみ更新される")
+        void shouldReuseDetailForKeptSchedule() {
+            // 準備
+            when(surveyRepository.findById(1L)).thenReturn(Optional.of(testSurvey));
+            when(surveyDetailRepository.findBySurveyId(1L)).thenReturn(List.of(testDetail));
+            when(surveyRepository.save(any(Survey.class))).thenReturn(testSurvey);
+            when(surveyRepository.findByUrlIdWithDetails(anyString()))
+                    .thenReturn(Optional.of(testSurvey));
+            when(surveyDetailRepository.findBySurveyIdWithScheduleAndResponses(anyLong()))
+                    .thenReturn(List.of());
+
+            CreateSurveyRequest request = CreateSurveyRequest.builder()
+                    .title("Updated Title")
+                    .responseOptions(List.of(
+                            ResponseOptionDto.builder().option("出席").isAttending(true).build()
+                    ))
+                    .details(List.of(
+                            CreateSurveyRequest.SurveyDetailRequest.builder()
+                                    .scheduleId(1L)  // 既存のスケジュールを維持
+                                    .mandatory(true)
+                                    .build()
+                    ))
+                    .build();
+
+            // 実行
+            surveyService.updateSurvey(1L, request);
+
+            // 検証: 既存detailは再利用され、削除も新規保存もされない
+            verify(surveyDetailRepository, never()).delete(any(SurveyDetail.class));
+            verify(surveyDetailRepository, never()).save(any(SurveyDetail.class));
+            verify(scheduleRepository, never()).updateAttendees(1L, null);
+            assertThat(testDetail.getMandatory()).isTrue();
         }
 
         @Test
