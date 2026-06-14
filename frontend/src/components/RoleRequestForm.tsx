@@ -116,7 +116,7 @@ export default function RoleRequestForm({ onSuccess, onError }: RoleRequestFormP
 
       {success && (
         <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6 text-green-700 text-sm">
-          リクエストが正常に送信されました。管理者の対応をお待ちください。<br/>リクエスト承認後は自動でログアウトされるため、再度ログインしてください。
+          リクエストが正常に送信されました。管理者の対応をお待ちください。<br/>新しい権限を反映するためには、管理人による承認後に再ログインが必要になります。
         </div>
       )}
 

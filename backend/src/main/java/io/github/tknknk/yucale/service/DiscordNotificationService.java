@@ -19,6 +19,15 @@ public class DiscordNotificationService {
     @Value("${discord.webhook.url:}")
     private String webhookUrl;
 
+    @Value("${discord.notify.request:true}")
+    private boolean notifyRequest;
+
+    @Value("${discord.notify.approval:true}")
+    private boolean notifyApproval;
+
+    @Value("${discord.notify.rejection:true}")
+    private boolean notifyRejection;
+
     @Value("${app.frontend.url:http://localhost:3000}")
     private String frontendUrl;
 
@@ -30,6 +39,10 @@ public class DiscordNotificationService {
 
     @Async
     public void sendNewRequestNotification(String username, String requestedRole, String message) {
+        if (!notifyRequest) {
+            log.debug("Discord request notification disabled, skipping");
+            return;
+        }
         if (!isWebhookConfigured()) {
             log.debug("Discord webhook not configured, skipping notification");
             return;
@@ -53,6 +66,10 @@ public class DiscordNotificationService {
 
     @Async
     public void sendApprovalNotification(String username, String role) {
+        if (!notifyApproval) {
+            log.debug("Discord approval notification disabled, skipping");
+            return;
+        }
         if (!isWebhookConfigured()) {
             log.debug("Discord webhook not configured, skipping notification");
             return;
@@ -71,6 +88,10 @@ public class DiscordNotificationService {
 
     @Async
     public void sendRejectionNotification(String username, String role, String reason) {
+        if (!notifyRejection) {
+            log.debug("Discord rejection notification disabled, skipping");
+            return;
+        }
         if (!isWebhookConfigured()) {
             log.debug("Discord webhook not configured, skipping notification");
             return;

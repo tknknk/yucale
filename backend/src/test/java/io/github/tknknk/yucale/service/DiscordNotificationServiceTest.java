@@ -45,6 +45,11 @@ class DiscordNotificationServiceTest {
         ReflectionTestUtils.setField(discordNotificationService, "restTemplate", restTemplate);
         ReflectionTestUtils.setField(discordNotificationService, "webhookUrl", VALID_WEBHOOK_URL);
         ReflectionTestUtils.setField(discordNotificationService, "frontendUrl", FRONTEND_URL);
+        // Per-event toggles default to enabled (Spring @Value defaults don't apply
+        // to a plain constructor instance)
+        ReflectionTestUtils.setField(discordNotificationService, "notifyRequest", true);
+        ReflectionTestUtils.setField(discordNotificationService, "notifyApproval", true);
+        ReflectionTestUtils.setField(discordNotificationService, "notifyRejection", true);
     }
 
     @Nested
@@ -227,6 +232,41 @@ class DiscordNotificationServiceTest {
 
             // 実行・検証: 例外がスローされないこと
             discordNotificationService.sendRejectionNotification("testuser", "EDITOR", "test");
+        }
+    }
+
+    @Nested
+    @DisplayName("通知のイベント別ON/OFF制御")
+    class NotificationToggleTests {
+
+        @Test
+        @DisplayName("notifyRequest=falseの場合、リクエスト通知をスキップ")
+        void shouldSkipRequestWhenDisabled() {
+            ReflectionTestUtils.setField(discordNotificationService, "notifyRequest", false);
+
+            discordNotificationService.sendNewRequestNotification("user", "EDITOR", "msg");
+
+            verify(restTemplate, never()).postForEntity(anyString(), any(), any());
+        }
+
+        @Test
+        @DisplayName("notifyApproval=falseの場合、承認通知をスキップ")
+        void shouldSkipApprovalWhenDisabled() {
+            ReflectionTestUtils.setField(discordNotificationService, "notifyApproval", false);
+
+            discordNotificationService.sendApprovalNotification("user", "EDITOR");
+
+            verify(restTemplate, never()).postForEntity(anyString(), any(), any());
+        }
+
+        @Test
+        @DisplayName("notifyRejection=falseの場合、却下通知をスキップ")
+        void shouldSkipRejectionWhenDisabled() {
+            ReflectionTestUtils.setField(discordNotificationService, "notifyRejection", false);
+
+            discordNotificationService.sendRejectionNotification("user", "EDITOR", "reason");
+
+            verify(restTemplate, never()).postForEntity(anyString(), any(), any());
         }
     }
 

@@ -50,6 +50,12 @@ logging:
 discord:
   webhook:
     url: ${DISCORD_WEBHOOK_URL:}
+  notify:
+    # Per-event toggles for Discord notifications. Each defaults to true; set to
+    # false to suppress that notification even when the webhook URL is configured.
+    request: ${DISCORD_NOTIFY_REQUEST:true}      # ロール変更リクエスト時
+    approval: ${DISCORD_NOTIFY_APPROVAL:true}    # リクエスト承認時
+    rejection: ${DISCORD_NOTIFY_REJECTION:true}  # リクエスト却下時
 
 app:
   admin:

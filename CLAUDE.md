@@ -98,6 +98,9 @@ frontend/src/
 |------|------|
 | `ADMIN_EMAIL` | 登録時にADMINロールを付与するメールアドレス |
 | `DISCORD_WEBHOOK_URL` | 権限リクエスト通知用 |
+| `DISCORD_NOTIFY_REQUEST` | ロール変更リクエスト時のDiscord通知ON/OFF（デフォルト: true） |
+| `DISCORD_NOTIFY_APPROVAL` | リクエスト承認時のDiscord通知ON/OFF（デフォルト: true） |
+| `DISCORD_NOTIFY_REJECTION` | リクエスト却下時のDiscord通知ON/OFF（デフォルト: true） |
 | `DEFAULT_BELONGING_LIST` | 出欠調査の所属リスト（デフォルト: S,A,T,B） |
 | `DEFAULT_RESPONSE_OPTIONS` | 出欠調査の回答選択肢（デフォルト: 出席,欠席,未定） |
 | `DEFAULT_ATTENDING_OPTIONS` | 出席扱いとする回答選択肢（デフォルト: 出席） |
