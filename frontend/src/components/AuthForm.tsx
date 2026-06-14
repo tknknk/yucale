@@ -86,30 +86,6 @@ export default function AuthForm({ mode, onSubmit, isLoading = false }: AuthForm
         )}
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4" noValidate>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-800 mb-1">
-              メールアドレス
-            </label>
-            <input
-              type="email"
-              id="email"
-              autoComplete="username"
-              {...register('email', {
-                required: 'メールアドレスは必須です',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: 'メールアドレスの形式が正しくありません',
-                },
-              })}
-              className={errors.email ? 'border-red-500' : ''}
-              placeholder="メールアドレスを入力"
-              disabled={isLoading}
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-            )}
-          </div>
-
           {!isLogin && (
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-800 mb-1">
@@ -147,6 +123,30 @@ export default function AuthForm({ mode, onSubmit, isLoading = false }: AuthForm
               )}
             </div>
           )}
+
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-800 mb-1">
+              メールアドレス
+            </label>
+            <input
+              type="email"
+              id="email"
+              autoComplete="username"
+              {...register('email', {
+                required: 'メールアドレスは必須です',
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: 'メールアドレスの形式が正しくありません',
+                },
+              })}
+              className={errors.email ? 'border-red-500' : ''}
+              placeholder="メールアドレスを入力"
+              disabled={isLoading}
+            />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+            )}
+          </div>
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-800 mb-1">
