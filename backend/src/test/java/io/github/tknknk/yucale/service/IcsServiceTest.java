@@ -100,7 +100,7 @@ class IcsServiceTest {
             assertThat(result).contains("PRODID:-//Yucale//EN");
             assertThat(result).contains("CALSCALE:GREGORIAN");
             assertThat(result).contains("METHOD:PUBLISH");
-            assertThat(result).contains("X-WR-CALNAME:Yucale");
+            assertThat(result).contains("X-WR-CALNAME:ゆカレ");
             assertThat(result).contains("END:VCALENDAR");
         }
 

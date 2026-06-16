@@ -47,7 +47,7 @@ public class IcsService {
         ics.append("PRODID:-//Yucale//EN").append(CRLF);
         ics.append("CALSCALE:GREGORIAN").append(CRLF);
         ics.append("METHOD:PUBLISH").append(CRLF);
-        ics.append("X-WR-CALNAME:Yucale").append(CRLF);
+        ics.append("X-WR-CALNAME:ゆカレ").append(CRLF);
 
         // Add all events
         List<Schedule> schedules = scheduleService.getAllSchedulesForIcs();
