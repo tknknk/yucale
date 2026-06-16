@@ -121,6 +121,9 @@ services:
       # Next.js standalone binds to $HOSTNAME (Docker sets it to the container ID),
       # so it only listens on the container IP. Force 0.0.0.0 to listen on loopback too.
       HOSTNAME: 0.0.0.0
+      # Google Calendar embed URL, read at RUNTIME by the /embed-config route handler
+      # (not baked into the image), so changing .env + restart is enough — no rebuild.
+      GOOGLE_CALENDAR_EMBED_URL: ${GOOGLE_CALENDAR_EMBED_URL:-}
     depends_on:
       backend:
         condition: service_healthy

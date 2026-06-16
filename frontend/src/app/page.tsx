@@ -9,6 +9,7 @@ import ScheduleModal from '@/components/ScheduleModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import NoticeBoard from '@/components/NoticeBoard';
+import GoogleCalendarEmbed from '@/components/GoogleCalendarEmbed';
 import { Schedule, ScheduleFormData, CreateScheduleRequest, UpdateScheduleRequest } from '@/types/schedule';
 import { useRecentSchedules, createSchedule, deleteSchedule as deleteScheduleSWR } from '@/hooks/useSchedulesSWR';
 import { schedulesApi } from '@/lib/schedules';
@@ -254,6 +255,9 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      {/* Google Calendar Embed - only for VIEWER and above, shown when configured */}
+      {canViewSchedules && <GoogleCalendarEmbed />}
 
       {/* Schedule Modal */}
       <ScheduleModal

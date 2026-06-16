@@ -60,6 +60,8 @@ services:
       - "3000:3000"
     environment:
       TZ: ${TZ:-Asia/Tokyo}
+      # 実行時に読み込まれる（ビルド不要・再起動のみで反映）。空なら非表示。
+      GOOGLE_CALENDAR_EMBED_URL: ${GOOGLE_CALENDAR_EMBED_URL:-}
     depends_on:
       - backend
 
