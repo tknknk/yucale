@@ -96,6 +96,13 @@ export default function SurveyResultsTable({ survey, onResponseDeleted }: Survey
     return { byBelonging: counts, total };
   };
 
+  // Count responses that enabled the checkbox for a given detail
+  const getCheckboxCount = (detailId: number) => {
+    const detail = survey.details?.find((d) => d.id === detailId);
+    if (!detail?.responses) return 0;
+    return detail.responses.filter((r) => r.checkboxChecked).length;
+  };
+
   // Get all unique belongings from responses (including those not in belongingList)
   const getAllBelongings = () => {
     const belongings = new Set<string>(survey.belongingList || []);
@@ -161,6 +168,11 @@ export default function SurveyResultsTable({ survey, onResponseDeleted }: Survey
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-800 uppercase tracking-wider bg-gray-100">
                   合計
                 </th>
+                {survey.enableCheckbox && (
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-800 uppercase tracking-wider bg-gray-100">
+                    ☑
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -189,6 +201,11 @@ export default function SurveyResultsTable({ survey, onResponseDeleted }: Survey
                     <td className="px-4 py-3 text-center text-sm font-medium text-gray-900 bg-gray-50">
                       {total}
                     </td>
+                    {survey.enableCheckbox && (
+                      <td className="px-4 py-3 text-center text-sm font-medium text-gray-900 bg-gray-50">
+                        {getCheckboxCount(detail.id)}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -274,7 +291,7 @@ export default function SurveyResultsTable({ survey, onResponseDeleted }: Survey
                               )}
                               {survey.enableCheckbox && response.checkboxChecked && (
                                 <div className="text-xs text-primary-700 mt-1">
-                                  ☑ {survey.checkboxLabel}
+                                  ☑
                                 </div>
                               )}
                             </div>

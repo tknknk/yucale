@@ -123,9 +123,102 @@ const mockSurveyNoResponses: Survey = {
   ],
 };
 
+const mockSurveyWithCheckbox: Survey = {
+  id: 4,
+  urlId: 'checkbox-survey',
+  title: 'チェックボックス調査',
+  belongingList: ['S', 'A'],
+  responseOptions: [
+    { option: '出席', isAttending: true },
+    { option: '欠席', isAttending: false },
+  ],
+  enableFreetext: false,
+  enableCheckbox: true,
+  checkboxLabel: '懇親会参加',
+  createdAt: '2024-01-15T10:00:00',
+  updatedAt: '2024-01-15T10:00:00',
+  details: [
+    {
+      id: 1,
+      scheduleId: 101,
+      scheduleSummary: 'ミーティングX',
+      scheduleDtstart: '2024-02-01T10:00:00',
+      scheduleDtend: '2024-02-01T11:00:00',
+      mandatory: true,
+      responses: [
+        {
+          id: 1,
+          surveyDetailId: 1,
+          userName: '山田太郎',
+          belonging: 'S',
+          responseOption: '出席',
+          checkboxChecked: true,
+          createdAt: '2024-01-20T10:00:00',
+        },
+        {
+          id: 2,
+          surveyDetailId: 1,
+          userName: '鈴木一郎',
+          belonging: 'A',
+          responseOption: '出席',
+          checkboxChecked: false,
+          createdAt: '2024-01-21T10:00:00',
+        },
+        {
+          id: 3,
+          surveyDetailId: 1,
+          userName: '佐藤花子',
+          belonging: 'A',
+          responseOption: '欠席',
+          checkboxChecked: false,
+          createdAt: '2024-01-22T10:00:00',
+        },
+      ],
+    },
+  ],
+};
+
 describe('SurveyResultsTable', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('checkbox aggregation and display', () => {
+    it('should not render the checkbox column when checkbox is disabled', () => {
+      render(<SurveyResultsTable survey={mockSurveyWithResponses} />);
+
+      const summarySection = screen.getByText('回答集計（参加者数）').closest('div') as HTMLElement;
+      expect(summarySection).not.toHaveTextContent('☑');
+    });
+
+    it('should show the checkbox (without its label) in the summary header next to 合計', () => {
+      render(<SurveyResultsTable survey={mockSurveyWithCheckbox} />);
+
+      const summarySection = screen.getByText('回答集計（参加者数）').closest('div') as HTMLElement;
+      expect(summarySection).toHaveTextContent('☑');
+      // The label string is not shown anywhere (only one checkbox is assumed to exist)
+      expect(screen.queryByText('懇親会参加')).not.toBeInTheDocument();
+    });
+
+    it('should sum the number of people who enabled the checkbox per schedule', () => {
+      render(<SurveyResultsTable survey={mockSurveyWithCheckbox} />);
+
+      const summarySection = screen.getByText('回答集計（参加者数）').closest('div') as HTMLElement;
+      const bodyRow = summarySection.querySelector('tbody tr') as HTMLElement;
+      const cells = bodyRow.querySelectorAll('td');
+      // Last cell is the checkbox count: only 山田太郎 checked it -> 1
+      expect(cells[cells.length - 1]).toHaveTextContent('1');
+    });
+
+    it('should show the checkbox without its label in the detailed responses', () => {
+      render(<SurveyResultsTable survey={mockSurveyWithCheckbox} />);
+
+      const detailSection = screen.getByText('回答詳細').closest('div') as HTMLElement;
+      // The checkbox mark is shown for the checked response
+      expect(detailSection).toHaveTextContent('☑');
+      // ...but the checkbox label string is not shown in the detail section
+      expect(detailSection).not.toHaveTextContent('懇親会参加');
+    });
   });
 
   describe('empty states', () => {
