@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 
 interface CalendarSubscribeLinkProps {
   inline?: boolean;
@@ -147,6 +148,17 @@ export default function CalendarSubscribeLink({ inline = false }: CalendarSubscr
                   このリンクを外部に共有しないでください。
                 </span>
               </div>
+              {/* Link to detailed subscription instructions on the About page */}
+              <Link
+                href="/about#calendar-subscription"
+                onClick={() => setIsOpen(false)}
+                className="mt-3 inline-flex items-center text-xs font-medium text-primary-600 hover:text-primary-700"
+              >
+                各アプリでの購読方法を見る
+                <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
             </div>
           </div>
         </div>
