@@ -12,6 +12,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
+    "@fontsource/zen-maru-gothic": "^5.2.8",
     "axios": "^1.6.7",
     "date-fns": "^3.3.1",
     "next": "14.1.0",

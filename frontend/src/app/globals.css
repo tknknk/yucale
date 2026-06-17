@@ -13,6 +13,7 @@ html {
 }
 
 body {
+  font-family: 'Zen Maru Gothic', ui-sans-serif, system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
       135deg,
