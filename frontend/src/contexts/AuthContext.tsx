@@ -57,7 +57,7 @@ interface AuthProviderProps {
 }
 
 // Public paths that don't require authentication
-const PUBLIC_PATHS = ['/', '/login', '/register'];
+const PUBLIC_PATHS = ['/', '/login', '/register', '/about'];
 
 // Check if a path is public (doesn't require authentication)
 const isPublicPath = (path: string): boolean => {
