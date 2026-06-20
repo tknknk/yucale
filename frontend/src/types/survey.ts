@@ -28,6 +28,9 @@ export interface SurveyDetail {
   scheduleSummary: string;
   scheduleDtstart: string;
   scheduleDtend: string;
+  scheduleLocation?: string;
+  scheduleSong?: string;
+  scheduleDescription?: string;
   mandatory: boolean;
   responses?: SurveyResponse[];
 }

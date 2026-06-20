@@ -572,6 +572,9 @@ public class SurveyService {
                 .scheduleSummary(schedule != null ? schedule.getSummary() : null)
                 .scheduleDtstart(schedule != null ? schedule.getDtstart() : null)
                 .scheduleDtend(schedule != null ? schedule.getDtend() : null)
+                .scheduleLocation(schedule != null ? schedule.getLocation() : null)
+                .scheduleSong(schedule != null ? schedule.getSong() : null)
+                .scheduleDescription(schedule != null ? schedule.getDescription() : null)
                 .mandatory(detail.getMandatory())
                 .build();
     }

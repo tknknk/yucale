@@ -19,6 +19,9 @@ public class SurveyDetailDto {
     private String scheduleSummary;
     private LocalDateTime scheduleDtstart;
     private LocalDateTime scheduleDtend;
+    private String scheduleLocation;
+    private String scheduleSong;
+    private String scheduleDescription;
     private Boolean mandatory;
     private List<SurveyResponseDto> responses;
 }
