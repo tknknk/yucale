@@ -104,7 +104,7 @@ export default function Header() {
                 </Link>
                 <Link
                   href={user?.role === 'ADMIN' ? '/admin' : '/user'}
-                  className="text-white/80 hover:text-white transition-all duration-200 flex items-center gap-1.5 p-2 sm:p-0 hover:scale-105"
+                  className="hover:text-white/90 transition-all duration-200 flex items-center gap-1.5 p-2 sm:p-0 hover:scale-105"
                   title={`${user?.username} (${formatRole(user?.role)})`}
                 >
                   <svg
