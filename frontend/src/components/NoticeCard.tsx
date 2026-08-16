@@ -1,46 +1,10 @@
 'use client';
 
-import { useState, ReactNode } from 'react';
+import { useState } from 'react';
 import { Notice } from '@/types/notice';
 import { format, parseISO, isValid } from 'date-fns';
 import { ja } from 'date-fns/locale';
-
-// URLが同じドメインかどうかを判定する関数
-const isSameOrigin = (url: string): boolean => {
-  try {
-    const linkUrl = new URL(url);
-    return linkUrl.hostname === window.location.hostname;
-  } catch {
-    return false;
-  }
-};
-
-// URLを検出してリンクに変換する関数
-const renderContentWithLinks = (content: string): ReactNode[] => {
-  const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,;:!?\])'">\-])/g;
-  const parts = content.split(urlRegex);
-
-  return parts.map((part, index) => {
-    if (urlRegex.test(part)) {
-      // Reset lastIndex because test() modifies it
-      urlRegex.lastIndex = 0;
-      const sameOrigin = isSameOrigin(part);
-      return (
-        <a
-          key={index}
-          href={part}
-          target={sameOrigin ? undefined : '_blank'}
-          rel={sameOrigin ? undefined : 'noopener noreferrer'}
-          className="text-primary-600 hover:text-primary-800 underline"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {part}
-        </a>
-      );
-    }
-    return part;
-  });
-};
+import { linkifyText } from '@/lib/linkify';
 
 interface NoticeCardProps {
   notice: Notice;
@@ -169,8 +133,8 @@ export default function NoticeCard({
         <div className="px-4 pb-4 pt-1 animate-fade-in">
           {/* Content */}
           <div className="mb-4">
-            <p className="text-sm text-gray-800 whitespace-pre-wrap">
-              {renderContentWithLinks(notice.content)}
+            <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+              {linkifyText(notice.content)}
             </p>
           </div>
 

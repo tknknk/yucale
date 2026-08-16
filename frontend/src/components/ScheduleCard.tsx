@@ -1,60 +1,12 @@
 'use client';
 
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect } from 'react';
 import { Schedule } from '@/types/schedule';
 import { Role } from '@/types/user';
 import { format, parseISO, isValid } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
-
-// URL正規表現パターン
-const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
-
-// URLが同じドメインかどうかを判定する関数
-function isSameOrigin(url: string): boolean {
-  try {
-    const linkUrl = new URL(url);
-    return linkUrl.hostname === window.location.hostname;
-  } catch {
-    return false;
-  }
-}
-
-// リンクの表示ラベル（ドメイン名）を取得する関数。
-// パースできない場合は元のURLをそのまま表示する。
-function getLinkLabel(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-// テキスト内のURLをリンクに変換する関数
-function linkifyText(text: string): ReactNode[] {
-  const parts = text.split(URL_REGEX);
-  return parts.map((part, index) => {
-    if (URL_REGEX.test(part)) {
-      // Reset regex lastIndex for reuse
-      URL_REGEX.lastIndex = 0;
-      const sameOrigin = isSameOrigin(part);
-      return (
-        <a
-          key={index}
-          href={part}
-          target={sameOrigin ? undefined : '_blank'}
-          rel={sameOrigin ? undefined : 'noopener noreferrer'}
-          className="text-primary-600 hover:text-primary-700 underline break-all"
-          title={part}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {getLinkLabel(part)}
-        </a>
-      );
-    }
-    return part;
-  });
-}
+import { linkifyText } from '@/lib/linkify';
 
 interface ScheduleCardProps {
   schedule: Schedule;

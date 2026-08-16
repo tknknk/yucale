@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Schedule } from '@/types/schedule';
 import { schedulesApi } from '@/lib/schedules';
+import { linkifyText } from '@/lib/linkify';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { format, parseISO, isValid } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -46,32 +47,6 @@ function CheckIcon({ className }: { className?: string }) {
       />
     </svg>
   );
-}
-
-// URL regex pattern
-const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
-
-// Convert URLs in text to links
-function linkifyText(text: string): ReactNode[] {
-  const parts = text.split(URL_REGEX);
-  return parts.map((part, index) => {
-    if (URL_REGEX.test(part)) {
-      URL_REGEX.lastIndex = 0;
-      return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary-600 hover:text-primary-700 underline"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {part}
-        </a>
-      );
-    }
-    return part;
-  });
 }
 
 export default function ScheduleDetailPage() {

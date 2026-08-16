@@ -1,38 +1,11 @@
 'use client';
 
-import { ReactNode } from 'react';
 import { Schedule } from '@/types/schedule';
 import { Role } from '@/types/user';
 import { format, parseISO, isValid } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
-
-// URL正規表現パターン
-const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
-
-// テキスト内のURLをリンクに変換する関数
-function linkifyText(text: string): ReactNode[] {
-  const parts = text.split(URL_REGEX);
-  return parts.map((part, index) => {
-    if (URL_REGEX.test(part)) {
-      // Reset regex lastIndex for reuse
-      URL_REGEX.lastIndex = 0;
-      return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary-600 hover:text-primary-700 underline"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {part}
-        </a>
-      );
-    }
-    return part;
-  });
-}
+import { linkifyText } from '@/lib/linkify';
 
 interface RecentScheduleCardProps {
   schedule: Schedule;

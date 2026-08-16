@@ -108,18 +108,32 @@ describe('NoticeCard', () => {
   });
 
   describe('URL linking', () => {
-    it('should render URLs as clickable links', () => {
+    it('should render URLs as clickable links labeled with the domain', () => {
       const noticeWithUrl: Notice = {
         ...mockNotice,
         content: 'Check out https://example.com for more info',
       };
       render(<NoticeCard notice={noticeWithUrl} forceExpanded={true} />);
 
-      const link = screen.getByRole('link', { name: 'https://example.com' });
+      const link = screen.getByRole('link', { name: 'example.com' });
       expect(link).toBeInTheDocument();
       expect(link).toHaveAttribute('href', 'https://example.com');
       expect(link).toHaveAttribute('target', '_blank');
       expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('should shorten long URLs to the domain while keeping the full URL in href', () => {
+      const longUrl =
+        'https://www.example.com/very/long/path/that/breaks/the/layout?query=1234567890&more=abcdefghij';
+      const noticeWithLongUrl: Notice = {
+        ...mockNotice,
+        content: `詳細はこちら ${longUrl}`,
+      };
+      render(<NoticeCard notice={noticeWithLongUrl} forceExpanded={true} />);
+
+      const link = screen.getByRole('link', { name: 'example.com/…' });
+      expect(link).toHaveAttribute('href', longUrl);
+      expect(link).toHaveAttribute('title', longUrl);
     });
 
     it('should render multiple URLs as separate links', () => {
