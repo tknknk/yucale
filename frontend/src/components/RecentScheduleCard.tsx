@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Schedule } from '@/types/schedule';
 import { Role } from '@/types/user';
 import { format, parseISO, isValid } from 'date-fns';
@@ -110,13 +111,19 @@ export default function RecentScheduleCard({
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          {/* Title */}
+          {/* Title - links to the schedule detail page */}
           <h3
             className={`text-lg font-semibold truncate ${
               isPast ? 'text-gray-400' : 'text-gray-800'
             }`}
           >
-            {getTitle()}
+            {schedule.urlId ? (
+              <Link href={`/schedule/${schedule.urlId}`} className="hover:underline">
+                {getTitle()}
+              </Link>
+            ) : (
+              getTitle()
+            )}
           </h3>
 
           {/* Date/Time */}

@@ -274,6 +274,33 @@ describe('ScheduleCard', () => {
     });
   });
 
+  describe('title link to the detail page', () => {
+    const scheduleWithUrlId = { ...mockSchedule, urlId: 'abc12' };
+
+    it('should link the title to /schedule/[urlId]', () => {
+      renderWithAuth(<ScheduleCard schedule={scheduleWithUrlId} />);
+
+      const titleLink = screen.getByRole('link', { name: 'Test Summary' });
+      expect(titleLink).toHaveAttribute('href', '/schedule/abc12');
+    });
+
+    it('should not expand the card when the title link is clicked', () => {
+      renderWithAuth(<ScheduleCard schedule={scheduleWithUrlId} userRole="VIEWER" />);
+
+      fireEvent.click(screen.getByRole('link', { name: 'Test Summary' }));
+
+      // Expansion is what reveals the location
+      expect(screen.queryByText('Test Location')).not.toBeInTheDocument();
+    });
+
+    it('should render a plain title when the schedule has no urlId', () => {
+      renderWithAuth(<ScheduleCard schedule={mockSchedule} />);
+
+      expect(screen.getByText('Test Summary')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Test Summary' })).not.toBeInTheDocument();
+    });
+  });
+
   describe('fallback values', () => {
     it('should use title if summary is not provided', () => {
       const scheduleWithTitle = { ...mockSchedule, summary: '', title: 'Fallback Title' };
