@@ -66,6 +66,9 @@ const isPublicPath = (path: string): boolean => {
   if (path.startsWith('/survey/') && !path.startsWith('/survey/create') && !path.startsWith('/survey/edit/')) {
     return true;
   }
+  // /schedule/[urlId] is viewable without logging in: the page hides the details
+  // and shows a login prompt instead (GET /api/schedules/url/{urlId} is permitAll)
+  if (/^\/schedule\/[^/]+$/.test(path)) return true;
   return false;
 };
 
@@ -99,10 +102,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  // Send an unauthenticated visitor on a protected page to the login screen.
+  // `hadSession` distinguishes "your session expired" from "you were never logged
+  // in" - only the former warrants the expiration notice on the login page.
+  const redirectToLogin = useCallback((hadSession: boolean) => {
+    if (isPublicPath(pathname)) return;
+    router.push(hadSession ? '/login?expired=true' : '/login');
+  }, [pathname, router]);
+
   // Background validation on mount
   const validateSession = useCallback(async () => {
     if (hasValidated.current) return;
     hasValidated.current = true;
+
+    // A cached user means this browser session was logged in at some point,
+    // so a failing /auth/me here really is an expired session.
+    const hadSession = getCachedUser() !== null;
 
     try {
       setIsValidating(true);
@@ -112,13 +127,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Session invalid - clear cached user
       setUser(null);
       // Redirect if on protected page
-      if (!isPublicPath(pathname)) {
-        router.push('/login?expired=true');
-      }
+      redirectToLogin(hadSession);
     } finally {
       setIsValidating(false);
     }
-  }, [pathname, router]);
+  }, [redirectToLogin]);
 
   // Refresh user data (can be called manually when needed)
   const refreshUser = useCallback(async () => {
@@ -133,13 +146,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Handle session expiration
   const handleSessionExpired = useCallback(() => {
+    // A 401 while a user was loaded means the session really did expire;
+    // a 401 for a visitor who was never logged in is just missing auth.
+    const hadSession = user !== null;
     setUser(null);
 
     // Only redirect if on a protected page
-    if (!isPublicPath(pathname)) {
-      router.push('/login?expired=true');
-    }
-  }, [pathname, router]);
+    redirectToLogin(hadSession);
+  }, [user, redirectToLogin]);
 
   useEffect(() => {
     validateSession();

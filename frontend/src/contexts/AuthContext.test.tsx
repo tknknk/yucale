@@ -14,11 +14,13 @@ jest.mock('@/lib/auth', () => ({
 }));
 
 // Mock next/navigation
+const mockPush = jest.fn();
+let mockPathname = '/';
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockPush,
   }),
-  usePathname: () => '/',
+  usePathname: () => mockPathname,
 }));
 
 // Mock api module for SESSION_EXPIRED_EVENT
@@ -69,6 +71,8 @@ function TestComponent() {
 describe('AuthContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPathname = '/';
+    sessionStorage.clear();
   });
 
   describe('AuthProvider', () => {
@@ -115,6 +119,50 @@ describe('AuthContext', () => {
       expect(mockAuthApi.getCurrentUser).toHaveBeenCalled();
       expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
       expect(screen.getByTestId('username')).toHaveTextContent('null');
+    });
+  });
+
+  describe('unauthenticated redirect', () => {
+    const renderAndWait = async () => {
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId('isValidating')).toHaveTextContent('false');
+      });
+    };
+
+    it('should not redirect a visitor viewing a schedule detail page', async () => {
+      mockPathname = '/schedule/6486ee9b';
+      mockAuthApi.getCurrentUser.mockRejectedValue(new Error('Unauthorized'));
+
+      await renderAndWait();
+
+      expect(mockPush).not.toHaveBeenCalled();
+    });
+
+    it('should redirect to login without the expired notice when never logged in', async () => {
+      mockPathname = '/admin';
+      mockAuthApi.getCurrentUser.mockRejectedValue(new Error('Unauthorized'));
+
+      await renderAndWait();
+
+      expect(mockPush).toHaveBeenCalledWith('/login');
+    });
+
+    it('should redirect with the expired notice when a cached session is no longer valid', async () => {
+      mockPathname = '/admin';
+      sessionStorage.setItem(
+        'auth_user_cache',
+        JSON.stringify({ id: 1, username: 'testuser', email: 'test@example.com', role: 'VIEWER' })
+      );
+      mockAuthApi.getCurrentUser.mockRejectedValue(new Error('Unauthorized'));
+
+      await renderAndWait();
+
+      expect(mockPush).toHaveBeenCalledWith('/login?expired=true');
     });
   });
 
