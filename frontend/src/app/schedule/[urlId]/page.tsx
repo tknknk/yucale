@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { Schedule } from '@/types/schedule';
+import { Schedule, ScheduleFormData, UpdateScheduleRequest } from '@/types/schedule';
 import { schedulesApi } from '@/lib/schedules';
 import { linkifyText } from '@/lib/linkify';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ScheduleModal from '@/components/ScheduleModal';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { format, parseISO, isValid } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
@@ -51,6 +53,7 @@ function CheckIcon({ className }: { className?: string }) {
 
 export default function ScheduleDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, user } = useAuthContext();
 
   const urlId = params.urlId as string;
@@ -60,8 +63,19 @@ export default function ScheduleDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Edit modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Delete confirmation state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const isNoRoleOrGuest = !isAuthenticated || !user || user.role === 'NO_ROLE';
   const canViewDetails = !isNoRoleOrGuest;
+
+  // Check if user can edit (EDITOR or ADMIN role)
+  const canEdit = isAuthenticated && !!user && ['ADMIN', 'EDITOR'].includes(user.role);
 
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -152,6 +166,54 @@ export default function ScheduleDetailPage() {
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('コピーに失敗しました:', err);
+    }
+  };
+
+  // Handle edit submission - this page only edits the schedule it displays
+  const handleSubmit = async (data: ScheduleFormData) => {
+    if (!schedule) return;
+
+    try {
+      setIsSubmitting(true);
+
+      const scheduleData: UpdateScheduleRequest = {
+        title: data.summary,
+        summary: data.summary,
+        description: data.description,
+        startTime: data.dtstart,
+        endTime: data.dtend,
+        dtstart: data.dtstart,
+        dtend: data.dtend,
+        allDay: data.allDay,
+        location: data.location,
+        song: data.song,
+        recording: data.recording,
+      };
+
+      const updated = await schedulesApi.update(schedule.id, scheduleData);
+      setSchedule(updated);
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error('Failed to save schedule:', err);
+      throw err;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle confirmed delete - the schedule is gone, so return to the list
+  const handleConfirmDelete = async () => {
+    if (!schedule) return;
+
+    try {
+      setIsDeleting(true);
+      await schedulesApi.delete(schedule.id);
+      setIsDeleteDialogOpen(false);
+      router.push('/schedule');
+    } catch (err) {
+      console.error('Failed to delete schedule:', err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -389,6 +451,50 @@ export default function ScheduleDetailPage() {
             )}
           </div>
         )}
+
+        {/* Edit / Delete actions - only for EDITOR and ADMIN */}
+        {canEdit && (
+          <div className="flex gap-2 mt-4 pt-3 border-t border-gray-200/50">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg text-primary-700 bg-primary-100/80 hover:bg-primary-200 transition-all duration-200 hover:scale-105 active:scale-95"
+            >
+              <svg
+                className="w-3 h-3 mr-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+              編集
+            </button>
+            <button
+              onClick={() => setIsDeleteDialogOpen(true)}
+              className="inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg text-red-700 bg-red-100/80 hover:bg-red-200 transition-all duration-200 hover:scale-105 active:scale-95"
+            >
+              <svg
+                className="w-3 h-3 mr-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              削除
+            </button>
+          </div>
+        )}
       </div>
 
       {/* All Schedules button - only for VIEWER and above */}
@@ -415,6 +521,28 @@ export default function ScheduleDetailPage() {
           </Link>
         </div>
       )}
+
+      {/* Schedule Modal */}
+      <ScheduleModal
+        isOpen={isModalOpen}
+        schedule={schedule}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleSubmit}
+        isLoading={isSubmitting}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        title="予定を削除"
+        message="この予定を削除してもよろしいですか？この操作は取り消せません。"
+        confirmLabel="削除"
+        cancelLabel="キャンセル"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setIsDeleteDialogOpen(false)}
+        variant="danger"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

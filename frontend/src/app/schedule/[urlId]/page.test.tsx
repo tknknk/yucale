@@ -1,12 +1,15 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import ScheduleDetailPage from './page';
 import { schedulesApi } from '@/lib/schedules';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 // Mock the dependencies
+const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   useParams: () => ({ urlId: 'abc12' }),
+  useRouter: () => ({ push: mockPush }),
 }));
 
 jest.mock('@/contexts/AuthContext', () => ({
@@ -16,6 +19,10 @@ jest.mock('@/contexts/AuthContext', () => ({
 jest.mock('@/lib/schedules', () => ({
   schedulesApi: {
     getByUrlId: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    // Used by ScheduleForm for location suggestions
+    getLocations: jest.fn().mockResolvedValue([]),
   },
 }));
 
@@ -48,6 +55,8 @@ const mockSchedule = {
 
 const mockUseAuthContext = useAuthContext as jest.MockedFunction<typeof useAuthContext>;
 const mockGetByUrlId = schedulesApi.getByUrlId as jest.MockedFunction<typeof schedulesApi.getByUrlId>;
+const mockUpdate = schedulesApi.update as jest.MockedFunction<typeof schedulesApi.update>;
+const mockDelete = schedulesApi.delete as jest.MockedFunction<typeof schedulesApi.delete>;
 
 describe('ScheduleDetailPage', () => {
   beforeEach(() => {
@@ -130,6 +139,17 @@ describe('ScheduleDetailPage', () => {
       });
 
       expect(screen.queryByRole('link', { name: /すべての予定を見る/ })).not.toBeInTheDocument();
+    });
+
+    it('should NOT show edit/delete buttons', async () => {
+      render(<ScheduleDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Summary')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByRole('button', { name: /編集/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /削除/ })).not.toBeInTheDocument();
     });
   });
 
@@ -246,6 +266,17 @@ describe('ScheduleDetailPage', () => {
       expect(screen.getByText(/最終更新/)).toBeInTheDocument();
       expect(screen.getByText(/testuser/)).toBeInTheDocument();
     });
+
+    it('should NOT show edit/delete buttons', async () => {
+      render(<ScheduleDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Summary')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByRole('button', { name: /編集/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /削除/ })).not.toBeInTheDocument();
+    });
   });
 
   describe('EDITOR user', () => {
@@ -272,6 +303,77 @@ describe('ScheduleDetailPage', () => {
       expect(screen.getByText('This is a test description')).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /すべての予定を見る/ })).toBeInTheDocument();
     });
+
+    it('should show edit and delete buttons', async () => {
+      render(<ScheduleDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Summary')).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole('button', { name: /編集/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /削除/ })).toBeInTheDocument();
+    });
+
+    it('should open the edit modal prefilled with the schedule', async () => {
+      const user = userEvent.setup();
+      render(<ScheduleDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Summary')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /編集/ }));
+
+      expect(screen.getByText('予定を編集')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Test Summary')).toBeInTheDocument();
+    });
+
+    it('should update the schedule and show the new values', async () => {
+      const user = userEvent.setup();
+      mockUpdate.mockResolvedValue({ ...mockSchedule, summary: 'Updated Summary' });
+
+      render(<ScheduleDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Summary')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /編集/ }));
+      await user.click(screen.getByRole('button', { name: '予定を更新' }));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalledWith(
+          1,
+          expect.objectContaining({ summary: 'Test Summary' })
+        );
+      });
+      expect(await screen.findByText('Updated Summary')).toBeInTheDocument();
+      expect(screen.queryByText('予定を編集')).not.toBeInTheDocument();
+    });
+
+    it('should delete the schedule and return to the list after confirmation', async () => {
+      const user = userEvent.setup();
+      mockDelete.mockResolvedValue(undefined);
+
+      render(<ScheduleDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Summary')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /削除/ }));
+      expect(screen.getByText('この予定を削除してもよろしいですか？この操作は取り消せません。')).toBeInTheDocument();
+
+      // Both the card action and the dialog say 削除; the dialog's is rendered last
+      const deleteButtons = screen.getAllByRole('button', { name: '削除' });
+      await user.click(deleteButtons[deleteButtons.length - 1]);
+
+      await waitFor(() => {
+        expect(mockDelete).toHaveBeenCalledWith(1);
+      });
+      expect(mockPush).toHaveBeenCalledWith('/schedule');
+    });
   });
 
   describe('ADMIN user', () => {
@@ -296,6 +398,17 @@ describe('ScheduleDetailPage', () => {
 
       expect(screen.getByText('Test Location')).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /すべての予定を見る/ })).toBeInTheDocument();
+    });
+
+    it('should show edit and delete buttons', async () => {
+      render(<ScheduleDetailPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Summary')).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole('button', { name: /編集/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /削除/ })).toBeInTheDocument();
     });
   });
 
