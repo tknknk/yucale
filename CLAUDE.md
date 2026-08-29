@@ -119,7 +119,7 @@ frontend/src/
 | `NEXT_PUBLIC_ICS_FILENAME` | ICSファイル名 |
 | `NEXT_PUBLIC_DEFAULT_START_TIME` | デフォルト開始時刻 (HH:mm) |
 | `NEXT_PUBLIC_DEFAULT_END_TIME` | デフォルト終了時刻 (HH:mm) |
-| `GOOGLE_CALENDAR_EMBED_URL` | Googleカレンダー埋め込みURL（iframeの`src`値）。**実行時**にフロントエンドの`/embed-config` Route Handler経由で読み込まれる（`NEXT_PUBLIC_*`と異なりビルド時に焼き込まれない＝再ビルド不要、`.env`変更＋再起動で反映）。設定するとトップページ最下部にVIEWER以上向けにカレンダーを表示。未設定または`https://calendar.google.com/calendar/embed`で始まらない場合は非表示。公開カレンダー想定 |
+| `GOOGLE_CALENDAR_EMBED_URL` | Googleカレンダー埋め込みURL（iframeの`src`値）。**実行時**にフロントエンドの`/embed-config` Route Handler経由で読み込まれる（`NEXT_PUBLIC_*`と異なりビルド時に焼き込まれない＝再ビルド不要、`.env`変更＋再起動で反映）。トップページ最下部の「カレンダー」セクション（VIEWER以上向け、カレンダー購読ボタンもここに配置）に埋め込む。未設定または`https://calendar.google.com/calendar/embed`で始まらない場合は、iframeの代わりに「Google Calendarの共有リンクが登録されていません」と表示。公開カレンダー想定 |
 
 ## Testing Notes
 

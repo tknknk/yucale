@@ -5,6 +5,8 @@ import GoogleCalendarEmbed from './GoogleCalendarEmbed';
 const VALID_URL =
   'https://calendar.google.com/calendar/embed?src=xxxxx%40import.calendar.google.com&ctz=Asia%2FTokyo';
 
+const NOT_CONFIGURED_MESSAGE = 'Google Calendarの共有リンクが登録されていません';
+
 // /embed-config の fetch 応答をモックするヘルパー
 const mockFetch = (impl: () => Promise<unknown>) => {
   (global.fetch as unknown) = jest.fn(impl);
@@ -26,35 +28,60 @@ describe('GoogleCalendarEmbed', () => {
     expect(global.fetch).toHaveBeenCalledWith('/embed-config');
   });
 
-  it('URLが空（未設定）の場合は何も表示しない', async () => {
-    mockFetch(async () => ({ ok: true, json: async () => ({ url: '' }) }));
+  it('action を見出し行に表示する', async () => {
+    mockFetch(async () => ({ ok: true, json: async () => ({ url: VALID_URL }) }));
 
-    const { container } = render(<GoogleCalendarEmbed />);
+    render(<GoogleCalendarEmbed action={<button>カレンダーを購読</button>} />);
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
-    expect(screen.queryByTitle('Google カレンダー')).not.toBeInTheDocument();
-    expect(container).toBeEmptyDOMElement();
+    await screen.findByTitle('Google カレンダー');
+    expect(screen.getByRole('button', { name: 'カレンダーを購読' })).toBeInTheDocument();
   });
 
-  it('fetchが失敗した場合は何も表示しない', async () => {
+  it('URLが未設定でも action は表示する', async () => {
+    mockFetch(async () => ({ ok: true, json: async () => ({ url: '' }) }));
+
+    render(<GoogleCalendarEmbed action={<button>カレンダーを購読</button>} />);
+
+    expect(await screen.findByText(NOT_CONFIGURED_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'カレンダーを購読' })).toBeInTheDocument();
+  });
+
+  it('URLが空（未設定）の場合は未登録メッセージを表示する', async () => {
+    mockFetch(async () => ({ ok: true, json: async () => ({ url: '' }) }));
+
+    render(<GoogleCalendarEmbed />);
+
+    expect(await screen.findByText(NOT_CONFIGURED_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByTitle('Google カレンダー')).not.toBeInTheDocument();
+  });
+
+  it('fetchが失敗した場合は未登録メッセージを表示する', async () => {
     mockFetch(async () => {
       throw new Error('network error');
     });
 
-    const { container } = render(<GoogleCalendarEmbed />);
+    render(<GoogleCalendarEmbed />);
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(await screen.findByText(NOT_CONFIGURED_MESSAGE)).toBeInTheDocument();
     expect(screen.queryByTitle('Google カレンダー')).not.toBeInTheDocument();
-    expect(container).toBeEmptyDOMElement();
   });
 
-  it('レスポンスがok以外の場合は何も表示しない', async () => {
+  it('レスポンスがok以外の場合は未登録メッセージを表示する', async () => {
     mockFetch(async () => ({ ok: false, json: async () => ({ url: VALID_URL }) }));
 
-    const { container } = render(<GoogleCalendarEmbed />);
+    render(<GoogleCalendarEmbed />);
 
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    expect(await screen.findByText(NOT_CONFIGURED_MESSAGE)).toBeInTheDocument();
     expect(screen.queryByTitle('Google カレンダー')).not.toBeInTheDocument();
-    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('取得完了前は未登録メッセージを表示しない', () => {
+    mockFetch(() => new Promise(() => {}));
+
+    render(<GoogleCalendarEmbed />);
+
+    // 見出しは出るが、判定がつくまでメッセージは出さない
+    expect(screen.getByRole('heading', { name: 'カレンダー' })).toBeInTheDocument();
+    expect(screen.queryByText(NOT_CONFIGURED_MESSAGE)).not.toBeInTheDocument();
   });
 });

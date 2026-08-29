@@ -20,9 +20,10 @@ jest.mock('@/hooks/useSchedulesSWR');
 jest.mock('@/hooks/useNoticesSWR');
 // 実行時に /embed-config を fetch する子コンポーネント。ページテストの対象外なのでモックする
 // （埋め込みの挙動は GoogleCalendarEmbed.test.tsx で検証）。
+// カレンダー購読ボタンはこのセクションの見出し行に置くため、action だけは描画する。
 jest.mock('@/components/GoogleCalendarEmbed', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({ action }: { action?: React.ReactNode }) => <div>{action}</div>,
 }));
 
 const mockUseRecentSchedules = jest.spyOn(useSchedulesSWR, 'useRecentSchedules');

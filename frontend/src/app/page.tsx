@@ -192,7 +192,6 @@ export default function HomePage() {
                 <span className="hidden sm:inline">予定を追加</span>
               </button>
             )}
-            {canViewSchedules && <CalendarSubscribeLink inline />}
           </div>
         </div>
 
@@ -256,8 +255,9 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* Google Calendar Embed - only for VIEWER and above, shown when configured */}
-      {canViewSchedules && <GoogleCalendarEmbed />}
+      {/* Google Calendar Embed - only for VIEWER and above, shown when configured.
+          The subscribe button lives in this section's heading row. */}
+      {canViewSchedules && <GoogleCalendarEmbed action={<CalendarSubscribeLink inline />} />}
 
       {/* Schedule Modal */}
       <ScheduleModal
