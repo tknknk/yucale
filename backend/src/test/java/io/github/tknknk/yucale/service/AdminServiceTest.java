@@ -7,7 +7,11 @@ import io.github.tknknk.yucale.entity.User;
 import io.github.tknknk.yucale.enums.RequestStatus;
 import io.github.tknknk.yucale.enums.Role;
 import io.github.tknknk.yucale.repository.AuthRequestRepository;
+import io.github.tknknk.yucale.repository.NoticeRepository;
+import io.github.tknknk.yucale.repository.SurveyRepository;
 import io.github.tknknk.yucale.repository.UserRepository;
+import io.github.tknknk.yucale.security.CustomUserDetails;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,6 +20,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -42,6 +48,12 @@ class AdminServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private NoticeRepository noticeRepository;
+
+    @Mock
+    private SurveyRepository surveyRepository;
+
+    @Mock
     private DiscordNotificationService discordNotificationService;
 
     @Mock
@@ -51,8 +63,19 @@ class AdminServiceTest {
     private AdminService adminService;
 
     private User testUser;
+    private User operatingAdmin;
     private AuthRequest pendingRequest;
     private AuthRequest approvedRequest;
+
+    /**
+     * 削除操作を実行する管理者としてSecurityContextを設定し、取得できるようにする
+     */
+    private void authenticateAsOperatingAdmin() {
+        CustomUserDetails principal = new CustomUserDetails(operatingAdmin);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+        when(userRepository.findById(operatingAdmin.getId())).thenReturn(Optional.of(operatingAdmin));
+    }
 
     @BeforeEach
     void setUp() {
@@ -63,6 +86,17 @@ class AdminServiceTest {
                 .email("test@example.com")
                 .passwordHash("hashedPassword")
                 .role(Role.NO_ROLE)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        // 削除操作を実行する管理者
+        operatingAdmin = User.builder()
+                .id(100L)
+                .username("adminuser")
+                .email("admin@example.com")
+                .passwordHash("hashedPassword")
+                .role(Role.ADMIN)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -88,6 +122,11 @@ class AdminServiceTest {
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     // ============================================
@@ -407,6 +446,7 @@ class AdminServiceTest {
             Long userId = testUser.getId();
             List<AuthRequest> userRequests = Collections.singletonList(pendingRequest);
 
+            authenticateAsOperatingAdmin();
             when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
             when(authRequestRepository.findByUserId(userId)).thenReturn(userRequests);
 
@@ -425,6 +465,7 @@ class AdminServiceTest {
         void deleteUser_noAuthRequests_success() {
             // Arrange
             Long userId = testUser.getId();
+            authenticateAsOperatingAdmin();
             when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
             when(authRequestRepository.findByUserId(userId)).thenReturn(Collections.emptyList());
 
@@ -490,6 +531,7 @@ class AdminServiceTest {
                     .updatedAt(LocalDateTime.now())
                     .build();
 
+            authenticateAsOperatingAdmin();
             when(userRepository.findById(viewerUser.getId())).thenReturn(Optional.of(viewerUser));
             when(authRequestRepository.findByUserId(viewerUser.getId())).thenReturn(Collections.emptyList());
 
@@ -501,8 +543,8 @@ class AdminServiceTest {
         }
 
         @Test
-        @DisplayName("正常系: EDITORユーザーを削除できる")
-        void deleteUser_editorUser_success() {
+        @DisplayName("正常系: EDITORユーザーを削除し、作成したお知らせ・出欠調査を操作者に引き継ぐ")
+        void deleteUser_editorUser_transfersCreatedContent() {
             // Arrange
             User editorUser = User.builder()
                     .id(4L)
@@ -513,8 +555,40 @@ class AdminServiceTest {
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
                     .build();
+            authenticateAsOperatingAdmin();
 
             when(userRepository.findById(editorUser.getId())).thenReturn(Optional.of(editorUser));
+            when(noticeRepository.reassignCreatedBy(editorUser.getId(), operatingAdmin)).thenReturn(2);
+            when(surveyRepository.reassignCreatedBy(editorUser.getId(), operatingAdmin)).thenReturn(1);
+            when(authRequestRepository.findByUserId(editorUser.getId())).thenReturn(Collections.emptyList());
+
+            // Act
+            adminService.deleteUser(editorUser.getId());
+
+            // Assert
+            verify(noticeRepository).reassignCreatedBy(editorUser.getId(), operatingAdmin);
+            verify(surveyRepository).reassignCreatedBy(editorUser.getId(), operatingAdmin);
+            verify(userRepository).delete(editorUser);
+        }
+
+        @Test
+        @DisplayName("正常系: EDITORが何も作成していない場合も削除できる")
+        void deleteUser_editorUser_noCreatedContent_success() {
+            // Arrange
+            User editorUser = User.builder()
+                    .id(5L)
+                    .username("emptyeditor")
+                    .email("emptyeditor@example.com")
+                    .passwordHash("hashedPassword")
+                    .role(Role.EDITOR)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+            authenticateAsOperatingAdmin();
+
+            when(userRepository.findById(editorUser.getId())).thenReturn(Optional.of(editorUser));
+            when(noticeRepository.reassignCreatedBy(editorUser.getId(), operatingAdmin)).thenReturn(0);
+            when(surveyRepository.reassignCreatedBy(editorUser.getId(), operatingAdmin)).thenReturn(0);
             when(authRequestRepository.findByUserId(editorUser.getId())).thenReturn(Collections.emptyList());
 
             // Act
@@ -522,6 +596,34 @@ class AdminServiceTest {
 
             // Assert
             verify(userRepository).delete(editorUser);
+        }
+
+        @Test
+        @DisplayName("正常系: EDITOR以外（降格した元EDITOR等）でも引き継ぎ処理を行う")
+        void deleteUser_nonEditor_alsoTransfersContent() {
+            // Arrange
+            User demotedEditor = User.builder()
+                    .id(6L)
+                    .username("demoteduser")
+                    .email("demoted@example.com")
+                    .passwordHash("hashedPassword")
+                    .role(Role.VIEWER) // 過去にEDITORとしてお知らせを作成し、その後降格された想定
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+            authenticateAsOperatingAdmin();
+
+            when(userRepository.findById(demotedEditor.getId())).thenReturn(Optional.of(demotedEditor));
+            when(noticeRepository.reassignCreatedBy(demotedEditor.getId(), operatingAdmin)).thenReturn(1);
+            when(authRequestRepository.findByUserId(demotedEditor.getId())).thenReturn(Collections.emptyList());
+
+            // Act
+            adminService.deleteUser(demotedEditor.getId());
+
+            // Assert
+            verify(noticeRepository).reassignCreatedBy(demotedEditor.getId(), operatingAdmin);
+            verify(surveyRepository).reassignCreatedBy(demotedEditor.getId(), operatingAdmin);
+            verify(userRepository).delete(demotedEditor);
         }
     }
 

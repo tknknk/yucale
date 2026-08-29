@@ -2,6 +2,8 @@ package io.github.tknknk.yucale.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,7 +15,10 @@ import io.github.tknknk.yucale.enums.RequestStatus;
 import io.github.tknknk.yucale.enums.Role;
 import io.github.tknknk.yucale.exception.ResourceNotFoundException;
 import io.github.tknknk.yucale.repository.AuthRequestRepository;
+import io.github.tknknk.yucale.repository.NoticeRepository;
+import io.github.tknknk.yucale.repository.SurveyRepository;
 import io.github.tknknk.yucale.repository.UserRepository;
+import io.github.tknknk.yucale.security.CustomUserDetails;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -25,6 +30,8 @@ public class AdminService {
 
     private final AuthRequestRepository authRequestRepository;
     private final UserRepository userRepository;
+    private final NoticeRepository noticeRepository;
+    private final SurveyRepository surveyRepository;
     private final DiscordNotificationService discordNotificationService;
     private final SessionService sessionService;
 
@@ -111,11 +118,40 @@ public class AdminService {
             throw new IllegalArgumentException("管理者ユーザーは削除できません");
         }
 
+        // 削除対象が作成したお知らせ・出欠調査は、削除を実行した管理者に引き継ぐ。
+        // 引き継がないと、お知らせはFK制約違反で削除自体が失敗し、
+        // 出欠調査は surveys.created_by の ON DELETE CASCADE により回答ごと消えてしまう。
+        // EDITORから降格したユーザーもコンテンツを持ちうるため、ロールで絞らず常に実行する。
+        transferCreatedContent(user, getCurrentAdmin());
+
         // Delete associated auth requests first
         authRequestRepository.deleteAll(authRequestRepository.findByUserId(userId));
 
         userRepository.delete(user);
         log.info("Deleted user: {} (id: {})", user.getUsername(), userId);
+    }
+
+    /**
+     * 削除対象ユーザーが作成したお知らせ・出欠調査の作成者を、引き継ぎ先のユーザーに付け替える
+     */
+    private void transferCreatedContent(User from, User to) {
+        int notices = noticeRepository.reassignCreatedBy(from.getId(), to);
+        int surveys = surveyRepository.reassignCreatedBy(from.getId(), to);
+        log.info("Transferred content from {} (id: {}) to {} (id: {}) | notices={} | surveys={}",
+                from.getUsername(), from.getId(), to.getUsername(), to.getId(), notices, surveys);
+    }
+
+    /**
+     * 削除操作を実行している管理者を取得する
+     */
+    private User getCurrentAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails) {
+            CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
+            return userRepository.findById(userDetails.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("操作中の管理者ユーザーが見つかりません"));
+        }
+        throw new IllegalStateException("認証されたユーザーが見つかりません");
     }
 
     private AuthRequestDto toDto(AuthRequest request) {

@@ -35,7 +35,12 @@ export default function UserList() {
   }, []);
 
   const handleDelete = async (userId: number, username: string) => {
-    const confirmed = window.confirm(`ユーザー「${username}」を削除しますか？\nこの操作は取り消せません。`);
+    // 作成したお知らせ・出欠調査は削除操作者に引き継がれるため、事前に伝える
+    const confirmed = window.confirm(
+      `ユーザー「${username}」を削除しますか？\n` +
+        'このユーザーが作成したお知らせ・出欠調査があれば、あなた（管理者）に引き継がれます。\n' +
+        'この操作は取り消せません。'
+    );
     if (!confirmed) {
       return;
     }
