@@ -3,12 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
-
-const formatRole = (role: string | undefined): string => {
-  if (!role) return '';
-  if (role === 'NO_ROLE') return 'no role';
-  return role.toLowerCase();
-};
+import { formatRoleName } from '@/lib/roleLabel';
 
 // Navigation skeleton for loading state
 function NavSkeleton() {
@@ -105,7 +100,7 @@ export default function Header() {
                 <Link
                   href={user?.role === 'ADMIN' ? '/admin' : '/user'}
                   className="hover:text-white/90 transition-all duration-200 flex items-center gap-1.5 p-2 sm:p-0 hover:scale-105"
-                  title={`${user?.username} (${formatRole(user?.role)})`}
+                  title={`${user?.username} (${formatRoleName(user?.role)})`}
                 >
                   <svg
                     className="w-5 h-5 sm:w-4 sm:h-4"
@@ -120,7 +115,7 @@ export default function Header() {
                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                     />
                   </svg>
-                  <span className="hidden sm:inline">{user?.username} ({formatRole(user?.role)})</span>
+                  <span className="hidden sm:inline">{user?.username} ({formatRoleName(user?.role)})</span>
                 </Link>
                 <button
                   onClick={handleLogout}

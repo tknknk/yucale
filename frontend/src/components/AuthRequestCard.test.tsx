@@ -56,7 +56,7 @@ describe('AuthRequestCard', () => {
         />
       );
 
-      expect(screen.getByText('編集者')).toBeInTheDocument();
+      expect(screen.getByText('Editor')).toBeInTheDocument();
     });
 
     it('should display status badge', () => {
@@ -322,7 +322,7 @@ describe('AuthRequestCard', () => {
         />
       );
 
-      expect(screen.getByText('閲覧者')).toBeInTheDocument();
+      expect(screen.getByText('Viewer')).toBeInTheDocument();
     });
 
     it('should display correct badge for ADMIN role', () => {
@@ -339,7 +339,7 @@ describe('AuthRequestCard', () => {
         />
       );
 
-      expect(screen.getByText('管理者')).toBeInTheDocument();
+      expect(screen.getByText('Admin')).toBeInTheDocument();
     });
 
     it('should display correct badge for NO_ROLE', () => {
@@ -356,7 +356,7 @@ describe('AuthRequestCard', () => {
         />
       );
 
-      expect(screen.getByText('ロールなし')).toBeInTheDocument();
+      expect(screen.getByText('No role')).toBeInTheDocument();
     });
   });
 

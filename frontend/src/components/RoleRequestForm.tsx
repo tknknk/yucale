@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import api from '@/lib/api';
+import { formatRoleName } from '@/lib/roleLabel';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 type RequestableRole = 'VIEWER' | 'EDITOR' | 'ADMIN';
@@ -39,13 +40,13 @@ export default function RoleRequestForm({ onSuccess, onError }: RoleRequestFormP
 
     // Base roles available to everyone
     const allRoles: { value: RequestableRole; label: string }[] = [
-      { value: 'VIEWER', label: 'Viewer - 予定の閲覧' },
-      { value: 'EDITOR', label: 'Editor - 予定の作成と編集' },
+      { value: 'VIEWER', label: `${formatRoleName('VIEWER')} - 予定の閲覧` },
+      { value: 'EDITOR', label: `${formatRoleName('EDITOR')} - 予定の作成と編集` },
     ];
 
     // Only EDITOR can request ADMIN
     if (currentRole === 'EDITOR') {
-      allRoles.push({ value: 'ADMIN', label: 'Admin - 全管理機能' });
+      allRoles.push({ value: 'ADMIN', label: `${formatRoleName('ADMIN')} - 全管理機能` });
     }
 
     return allRoles.filter(role => ROLE_HIERARCHY[role.value] > currentRoleLevel);

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AuthRequest } from '@/lib/admin';
+import { formatRoleName } from '@/lib/roleLabel';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
@@ -10,13 +11,6 @@ interface AuthRequestCardProps {
   onApprove: (id: number) => Promise<void>;
   onReject: (id: number, reason?: string) => Promise<void>;
 }
-
-const roleLabels: Record<string, string> = {
-  NO_ROLE: 'ロールなし',
-  VIEWER: '閲覧者',
-  EDITOR: '編集者',
-  ADMIN: '管理者',
-};
 
 const roleBadgeColors: Record<string, string> = {
   NO_ROLE: 'bg-gray-100 text-gray-800',
@@ -72,7 +66,7 @@ export default function AuthRequestCard({ request, onApprove, onReject }: AuthRe
           </div>
           <div className="flex gap-2">
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleBadgeColors[request.requestedRole]}`}>
-              {roleLabels[request.requestedRole]}
+              {formatRoleName(request.requestedRole)}
             </span>
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusBadgeColors[request.status]}`}>
               {request.status}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAllUsers, deleteUser, AdminUser } from '@/lib/admin';
+import { formatRoleName } from '@/lib/roleLabel';
 import LoadingSpinner from './LoadingSpinner';
 
 const roleColors: Record<string, string> = {
@@ -117,7 +118,7 @@ export default function UserList() {
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${roleColors[user.role] || roleColors.NO_ROLE}`}>
-                  {user.role}
+                  {formatRoleName(user.role)}
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

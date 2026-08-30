@@ -137,6 +137,13 @@ describe('Header', () => {
       expect(userLink).toHaveAttribute('href', '/user');
     });
 
+    it('should capitalize the role name', () => {
+      render(<Header />);
+
+      // 大文字小文字を区別して検証（他画面と表記を揃えるため）
+      expect(screen.getByRole('link', { name: 'testuser (Viewer)' })).toBeInTheDocument();
+    });
+
     it('should display logout button', () => {
       render(<Header />);
 
