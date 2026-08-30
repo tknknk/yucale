@@ -178,6 +178,96 @@ const mockSurveyWithCheckbox: Survey = {
   ],
 };
 
+// 並び替え検証用。回答日時の古い順と、所属順・回答内容順のいずれもが異なるようにし、
+// 設定リストにない所属/選択肢と、未設定・未回答も含める。
+const mockSurveyForSorting: Survey = {
+  id: 5,
+  urlId: 'sorting-survey',
+  title: '並び替え調査',
+  belongingList: ['S', 'A', 'T', 'B'],
+  responseOptions: [
+    { option: '出席', isAttending: true },
+    { option: '欠席', isAttending: false },
+    { option: '未定', isAttending: false },
+  ],
+  enableFreetext: false,
+  createdAt: '2024-01-15T10:00:00',
+  updatedAt: '2024-01-15T10:00:00',
+  details: [
+    {
+      id: 1,
+      scheduleId: 101,
+      scheduleSummary: '第1回',
+      scheduleDtstart: '2024-02-01T10:00:00',
+      scheduleDtend: '2024-02-01T11:00:00',
+      mandatory: true,
+      responses: [
+        // createdAtの古い順: テノール → ソプラノ → 客演 → 未所属
+        {
+          id: 1,
+          surveyDetailId: 1,
+          userName: 'テノール',
+          belonging: 'T',
+          responseOption: '欠席',
+          createdAt: '2024-01-20T10:00:00',
+        },
+        {
+          id: 2,
+          surveyDetailId: 1,
+          userName: 'ソプラノ',
+          belonging: 'S',
+          responseOption: '未定',
+          createdAt: '2024-01-21T10:00:00',
+        },
+        {
+          id: 3,
+          surveyDetailId: 1,
+          userName: '客演',
+          // belongingList にない所属
+          belonging: 'エキストラ',
+          responseOption: '出席',
+          createdAt: '2024-01-22T10:00:00',
+        },
+        {
+          id: 4,
+          surveyDetailId: 1,
+          userName: '未所属',
+          // responseOptions にない選択肢（設定変更前の回答など）
+          responseOption: 'オンライン',
+          createdAt: '2024-01-23T10:00:00',
+        },
+      ],
+    },
+    {
+      id: 2,
+      scheduleId: 102,
+      scheduleSummary: '第2回',
+      scheduleDtstart: '2024-02-10T14:00:00',
+      scheduleDtend: '2024-02-10T15:00:00',
+      mandatory: false,
+      responses: [
+        // 第1回には回答していない（第1回で並び替えると最後に来る）
+        {
+          id: 5,
+          surveyDetailId: 2,
+          userName: 'アルト',
+          belonging: 'A',
+          responseOption: '出席',
+          createdAt: '2024-01-24T10:00:00',
+        },
+      ],
+    },
+  ],
+};
+
+const SORTING_USERS = ['テノール', 'ソプラノ', '客演', '未所属', 'アルト'];
+
+// 回答詳細テーブルの回答者列を上から順に取得する（回答者名は詳細テーブルにのみ出現）
+const getUserOrder = () =>
+  screen
+    .getAllByText(new RegExp(`^(${SORTING_USERS.join('|')})$`))
+    .map((el) => el.textContent);
+
 describe('SurveyResultsTable', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -300,7 +390,8 @@ describe('SurveyResultsTable', () => {
     it('should render response date columns', () => {
       render(<SurveyResultsTable survey={mockSurveyWithResponses} />);
 
-      expect(screen.getByText('回答日時')).toBeInTheDocument();
+      // 回答日時は並び替え可能な見出し（既定のソート列なので並び順の記号が付く）
+      expect(screen.getByRole('button', { name: /回答日時/ })).toBeInTheDocument();
       expect(screen.getByText('更新日時')).toBeInTheDocument();
     });
   });
@@ -384,6 +475,88 @@ describe('SurveyResultsTable', () => {
       const userCells = screen.getAllByText(/太郎|一郎/);
       // 山田太郎 was created first
       expect(userCells[0].textContent).toContain('山田太郎');
+    });
+
+    it('should sort by belonging in the configured order, with extras and unset last', () => {
+      render(<SurveyResultsTable survey={mockSurveyForSorting} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /所属/ }));
+
+      // belongingList は S, A, T, B。エキストラは設定外なので後ろ、所属なしは最後
+      expect(getUserOrder()).toEqual([
+        'ソプラノ', // S
+        'アルト', // A
+        'テノール', // T
+        '客演', // エキストラ（設定外）
+        '未所属', // 所属なし
+      ]);
+    });
+
+    it('should reverse the belonging order on a second click', () => {
+      render(<SurveyResultsTable survey={mockSurveyForSorting} />);
+
+      const belongingHeader = screen.getByRole('button', { name: /所属/ });
+      fireEvent.click(belongingHeader);
+      fireEvent.click(belongingHeader);
+
+      expect(getUserOrder()).toEqual([
+        '未所属',
+        '客演',
+        'テノール',
+        'アルト',
+        'ソプラノ',
+      ]);
+    });
+
+    it('should sort by a schedule response in the configured option order', () => {
+      render(<SurveyResultsTable survey={mockSurveyForSorting} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /第1回/ }));
+
+      // responseOptions は 出席, 欠席, 未定。オンラインは設定外なので後ろ、未回答は最後
+      expect(getUserOrder()).toEqual([
+        '客演', // 出席
+        'テノール', // 欠席
+        'ソプラノ', // 未定
+        '未所属', // オンライン（設定外）
+        'アルト', // 第1回は未回答
+      ]);
+    });
+
+    it('should keep the created_at order for users that tie', () => {
+      const survey: Survey = {
+        ...mockSurveyForSorting,
+        details: [
+          {
+            ...mockSurveyForSorting.details![0],
+            responses: mockSurveyForSorting.details![0].responses!.map((r) => ({
+              ...r,
+              belonging: 'S',
+            })),
+          },
+        ],
+      };
+      render(<SurveyResultsTable survey={survey} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /所属/ }));
+
+      // 全員同じ所属なので、既定の並び（回答日時の古い順）のまま
+      expect(getUserOrder()).toEqual(['テノール', 'ソプラノ', '客演', '未所属']);
+    });
+
+    it('should return to the created_at order when the 回答日時 header is used', () => {
+      render(<SurveyResultsTable survey={mockSurveyForSorting} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /所属/ }));
+      fireEvent.click(screen.getByRole('button', { name: /回答日時/ }));
+
+      expect(getUserOrder()).toEqual([
+        'テノール',
+        'ソプラノ',
+        '客演',
+        '未所属',
+        'アルト',
+      ]);
     });
   });
 });
