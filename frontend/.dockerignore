@@ -1,0 +1,25 @@
+# ホスト側の成果物をビルドコンテキストから除外する。
+# 特に node_modules は必須: Windows/macOS で npm install した node_modules が
+# `COPY . .` でコンテナ内の Linux 版を上書きすると、.bin/ 配下の shim が
+# ホスト OS 向けのまま残り `exec: node.exe: not found` でビルドが落ちる。
+node_modules
+.next
+.swc
+coverage
+tsconfig.tsbuildinfo
+
+# ローカル設定・ログ
+.env
+.env.*
+npm-debug.log*
+yarn-error.log*
+
+# VCS / エディタ / ツール
+.git
+.gitignore
+.claude
+
+# Docker 定義自体はイメージに不要
+Dockerfile
+Dockerfile.test
+.dockerignore

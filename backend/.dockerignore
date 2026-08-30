@@ -1,0 +1,21 @@
+# ホスト側の成果物をビルドコンテキストから除外する。
+# target/ を持ち込むと `COPY --from=builder /app/target/*.jar app.jar` が
+# 古い jar と衝突しうるため、コンテナ内で必ずビルドし直す。
+target
+
+# 実行時に生成されるファイル
+calendar.ics
+
+# VCS / エディタ / ツール
+.git
+.gitignore
+.claude
+
+# ローカル設定
+.env
+.env.*
+
+# Docker 定義自体はイメージに不要
+Dockerfile
+Dockerfile.test
+.dockerignore
