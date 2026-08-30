@@ -6,11 +6,7 @@ import { CreateSurveyRequest, SurveyDefaults, ResponseOption, Survey } from '@/t
 import { getSurveyDefaults } from '@/lib/surveys';
 import ScheduleSelector from './ScheduleSelector';
 import LoadingSpinner from './LoadingSpinner';
-import DatePicker, { registerLocale } from 'react-datepicker';
-import { ja } from 'date-fns/locale';
-import 'react-datepicker/dist/react-datepicker.css';
-
-registerLocale('ja', ja);
+import DateField from './DateField';
 
 interface SurveyFormData {
   title: string;
@@ -351,11 +347,9 @@ export default function SurveyForm({ onSubmit, onCancel, isLoading = false, init
           control={control}
           name="deadlineAt"
           render={({ field }) => (
-            <DatePicker
+            <DateField
               selected={field.value}
               onChange={(date: Date | null) => field.onChange(date)}
-              dateFormat="yyyy/MM/dd"
-              locale="ja"
               placeholderText="締切日を選択（任意）"
               className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2"
               disabled={isLoading || isSubmitting}

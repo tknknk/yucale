@@ -4,14 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Schedule, ScheduleFormData } from '@/types/schedule';
 import { format, parseISO, differenceInDays, addDays } from 'date-fns';
-import { ja } from 'date-fns/locale';
-import DatePicker, { registerLocale } from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
+import DateField from './DateField';
 import LoadingSpinner from './LoadingSpinner';
 import { schedulesApi } from '@/lib/schedules';
-
-// Register Japanese locale
-registerLocale('ja', ja);
 
 // Generate time options in 15-minute intervals (00:00 - 23:45)
 const generateTimeOptions = (): string[] => {
@@ -384,20 +379,14 @@ export default function ScheduleForm({
               name="startDate"
               rules={{ required: '開始日は必須です' }}
               render={({ field }) => (
-                <DatePicker
+                <DateField
                   selected={stringToDate(field.value)}
                   onChange={(date: Date | null) => field.onChange(dateToString(date))}
-                  dateFormat="yyyy/MM/dd"
-                  locale="ja"
                   placeholderText="日付を選択"
                   className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm ${
                     errors.startDate ? 'border-red-500' : 'border'
                   } px-3 py-2`}
                   disabled={isLoading || isSubmitting}
-                  showMonthDropdown
-                  showYearDropdown
-                  dropdownMode="select"
-                  popperPlacement="bottom-start"
                 />
               )}
             />
@@ -485,21 +474,15 @@ export default function ScheduleForm({
                   },
                 }}
                 render={({ field }) => (
-                  <DatePicker
+                  <DateField
                     selected={stringToDate(field.value)}
                     onChange={(date: Date | null) => field.onChange(dateToString(date))}
-                    dateFormat="yyyy/MM/dd"
-                    locale="ja"
                     placeholderText="日付を選択"
                     className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm ${
                       errors.endDate ? 'border-red-500' : 'border'
                     } px-3 py-2`}
                     disabled={isLoading || isSubmitting}
                     minDate={stringToDate(startDate) || undefined}
-                    showMonthDropdown
-                    showYearDropdown
-                    dropdownMode="select"
-                    popperPlacement="bottom-start"
                   />
                 )}
               />
@@ -623,74 +606,6 @@ export default function ScheduleForm({
           {isEditing ? '予定を更新' : '予定を作成'}
         </button>
       </div>
-
-      {/* Custom styles for react-datepicker */}
-      <style jsx global>{`
-        .react-datepicker {
-          font-family: inherit;
-          border: 1px solid #e5e7eb;
-          border-radius: 0.5rem;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        .react-datepicker__header {
-          background-color: #f9fafb;
-          border-bottom: 1px solid #e5e7eb;
-          padding-top: 0.75rem;
-        }
-        .react-datepicker__current-month {
-          font-weight: 600;
-          font-size: 1rem;
-          color: #111827;
-          margin-bottom: 0.5rem;
-        }
-        .react-datepicker__day-name {
-          color: #6b7280;
-          font-weight: 500;
-        }
-        .react-datepicker__day {
-          color: #374151;
-          border-radius: 0.375rem;
-        }
-        .react-datepicker__day:hover {
-          background-color: #e5e7eb;
-        }
-        .react-datepicker__day--selected {
-          background-color: #4f46e5 !important;
-          color: white !important;
-        }
-        .react-datepicker__day--keyboard-selected {
-          background-color: #c7d2fe;
-        }
-        .react-datepicker__day--today {
-          font-weight: 700;
-          color: #4f46e5;
-        }
-        .react-datepicker__navigation {
-          top: 0.75rem;
-        }
-        .react-datepicker__month-dropdown,
-        .react-datepicker__year-dropdown {
-          background-color: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 0.375rem;
-        }
-        .react-datepicker__month-option,
-        .react-datepicker__year-option {
-          padding: 0.25rem 0.5rem;
-        }
-        .react-datepicker__month-option:hover,
-        .react-datepicker__year-option:hover {
-          background-color: #e5e7eb;
-        }
-        .react-datepicker__month-option--selected_month,
-        .react-datepicker__year-option--selected_year {
-          background-color: #4f46e5 !important;
-          color: white;
-        }
-        .react-datepicker-popper {
-          z-index: 50;
-        }
-      `}</style>
     </form>
   );
 }
