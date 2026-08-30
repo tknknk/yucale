@@ -102,6 +102,23 @@ variable "cors_allowed_origins" {
   default     = ""
 }
 
+variable "origin_verify_secret" {
+  description = <<-EOT
+    Shared secret CloudFront sends to the origin as the X-Origin-Verify header, which
+    nginx checks before serving. The EC2 security group allows the CloudFront managed
+    prefix list, i.e. every AWS account's CloudFront, so without this anyone can point
+    their own distribution at this EIP and reach the origin directly. Generate with
+    `openssl rand -hex 32`.
+
+    Empty (the default) disables the check: CloudFront then sends no header and nginx
+    lets everything through, so a missing value degrades the protection rather than
+    taking the site down.
+  EOT
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "github_repo" {
   description = "GitHub repo (owner/name) the instance fetches docker-compose.prod.yml and nginx.prod.conf from at boot."
   type        = string

@@ -147,6 +147,7 @@ resource "aws_instance" "main" {
     app_port             = var.app_port
     cors_allowed_origins = var.cors_allowed_origins
     github_repo          = var.github_repo
+    origin_verify_secret = var.origin_verify_secret
   }))
 
   # Enable detailed monitoring (optional, adds ~$3/month)

@@ -149,6 +149,21 @@ resource "aws_cloudfront_distribution" "main" {
     domain_name = aws_eip.main.public_dns
     origin_id   = "EC2-Web"
 
+    # Proves to the origin that a request came from THIS distribution. The EC2
+    # security group only narrows access to the CloudFront managed prefix list,
+    # which covers every AWS account's CloudFront, so a third party could
+    # otherwise point their own distribution at this EIP and bypass ours.
+    # nginx rejects requests whose header does not match (see
+    # nginx.prod.conf.template). Omitted entirely when the secret is unset, so
+    # nginx's own empty-secret path leaves the check disabled instead of 403ing.
+    dynamic "custom_header" {
+      for_each = var.origin_verify_secret == "" ? [] : [1]
+      content {
+        name  = "X-Origin-Verify"
+        value = var.origin_verify_secret
+      }
+    }
+
     custom_origin_config {
       http_port              = var.app_port
       https_port             = 443

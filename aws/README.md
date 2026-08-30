@@ -140,8 +140,11 @@ cd /opt/yucale
 # Also set FRONTEND_URL to the same CloudFront URL, otherwise links inside the
 # ICS feed and Discord notifications point at http://localhost:3000:
 #   FRONTEND_URL=https://xxxxx.cloudfront.net
-# nginx also needs nginx.prod.conf present next to docker-compose.yml:
-#   sudo curl -o nginx.prod.conf https://raw.githubusercontent.com/tknknk/yucale/master/nginx.prod.conf
+# nginx also needs nginx.prod.conf.template present next to docker-compose.yml:
+#   sudo curl -o nginx.prod.conf.template https://raw.githubusercontent.com/tknknk/yucale/master/nginx.prod.conf.template
+# Set ORIGIN_VERIFY_SECRET to the same value as the origin_verify_secret
+# Terraform variable (see "Origin verification" below):
+#   ORIGIN_VERIFY_SECRET=<the value from terraform.tfvars>
 
 # Pull images from ghcr.io (public, no auth required)
 docker-compose -f docker-compose.prod.yml pull
@@ -149,6 +152,64 @@ docker-compose -f docker-compose.prod.yml pull
 # Start the application
 docker-compose -f docker-compose.prod.yml up -d
 ```
+
+## Origin verification (X-Origin-Verify)
+
+The EC2 security group only narrows origin access to the CloudFront managed prefix
+list, which covers **every AWS account's** CloudFront. Without a shared secret, anyone
+can point their own distribution at this EIP and reach the origin directly. CloudFront
+therefore attaches an `X-Origin-Verify` header that nginx checks, returning 403 when it
+does not match.
+
+Generate a secret and set it in `terraform.tfvars`:
+
+```hcl
+origin_verify_secret = "<openssl rand -hex 32>"
+```
+
+### Rollout order matters
+
+Apply CloudFront **first**, then the instance. In this order there is no downtime:
+
+1. `terraform apply` — CloudFront starts sending the header. The nginx still running on
+   the box ignores unknown headers, so the site keeps working.
+2. Update the instance (below) so nginx starts enforcing. CloudFront is already sending
+   the header by then.
+
+Doing it the other way round — enforcing on the box before CloudFront sends the header —
+returns 403 for every visitor until the apply finishes.
+
+### Updating an already-running instance
+
+`user_data` only runs when an instance is **created**, and `user_data_replace_on_change`
+is not set, so `terraform apply` will not re-bootstrap the existing box. Recreating it is
+not a workaround either: the root volume has `delete_on_termination = true`, so the
+Postgres data goes with it. Refresh the files in place instead:
+
+```bash
+cd /opt/yucale
+sudo curl -fL -o docker-compose.yml https://raw.githubusercontent.com/tknknk/yucale/master/docker-compose.prod.yml
+sudo curl -fL -o nginx.prod.conf.template https://raw.githubusercontent.com/tknknk/yucale/master/nginx.prod.conf.template
+sudo sh -c 'echo "ORIGIN_VERIFY_SECRET=<the value from terraform.tfvars>" >> .env'
+sudo rm -f nginx.prod.conf   # superseded by the template
+sudo systemctl restart yucale
+```
+
+Verify from your machine — the CloudFront URL works, a direct hit on the origin does not:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://xxxxx.cloudfront.net/api/health   # 200
+curl -s -o /dev/null -w '%{http_code}\n' http://<EIP>:3000/api/health              # 403
+```
+
+Leaving `ORIGIN_VERIFY_SECRET` empty (or unset in `terraform.tfvars`) disables the check
+on both sides rather than locking anyone out — a missing value degrades the protection,
+it does not take the site down.
+
+> **Note:** this closes off origin access, but the CloudFront-to-origin hop is still plain
+> HTTP (`origin_protocol_policy = "http-only"`). Encrypting it needs a custom domain: AWS
+> will not issue a certificate for an `*.compute.amazonaws.com` hostname, so there is no
+> valid cert to put on the origin as things stand.
 
 ## Accessing the Application
 

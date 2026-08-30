@@ -26,6 +26,7 @@ ADMIN_EMAIL="${admin_email}"
 DISCORD_WEBHOOK_URL="${discord_webhook_url}"
 CORS_ALLOWED_ORIGINS="${cors_allowed_origins}"
 GITHUB_REPO="${github_repo}"
+ORIGIN_VERIFY_SECRET="${origin_verify_secret}"
 
 # Public site URL for links in notifications (e.g. the Discord "Review" link).
 # Reuse the first CORS origin (the public CloudFront URL) so links resolve to
@@ -99,7 +100,7 @@ cd "$APP_DIR"
 
 RAW_BASE="https://raw.githubusercontent.com/$GITHUB_REPO/master"
 curl -fL --retry 5 --retry-delay 5 -o docker-compose.yml "$RAW_BASE/docker-compose.prod.yml"
-curl -fL --retry 5 --retry-delay 5 -o nginx.prod.conf "$RAW_BASE/nginx.prod.conf"
+curl -fL --retry 5 --retry-delay 5 -o nginx.prod.conf.template "$RAW_BASE/nginx.prod.conf.template"
 
 # -----------------------------------------------------------------------------
 # Environment file (sensitive / per-deployment values consumed by the compose)
@@ -113,6 +114,7 @@ ADMIN_EMAIL=$ADMIN_EMAIL
 DISCORD_WEBHOOK_URL=$DISCORD_WEBHOOK_URL
 CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS
 FRONTEND_URL=$FRONTEND_URL
+ORIGIN_VERIFY_SECRET=$ORIGIN_VERIFY_SECRET
 AWS_REGION=$AWS_REGION
 S3_BUCKET_NAME=$S3_BUCKET_NAME
 TZ=Asia/Tokyo

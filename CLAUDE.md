@@ -110,6 +110,7 @@ frontend/src/
 | `APP_COOKIE_SECURE` | セッション/CSRF CookieにSecure属性を付与（デフォルト: false）。HTTPS配信の本番では`true`必須 |
 | `APP_TRUSTED_PROXY_COUNT` | 前段の信頼するリバースプロキシ段数（デフォルト: 0）。レート制限のクライアントIP判定に使用。`X-Forwarded-For`詐称を防ぐため、本番（CloudFront+nginx）では`2`を指定 |
 | `APP_CORS_ALLOWED_ORIGINS` | CORS許可オリジン（カンマ区切り、デフォルト: `http://localhost:3000`）。本番ではCloudFront URLを指定。未設定だとAPIのPOSTが403になる |
+| `ORIGIN_VERIFY_SECRET` | CloudFrontがオリジンへ付与する共有シークレット（nginxが`X-Origin-Verify`を検証し不一致なら403）。SGはCloudFrontのマネージドプレフィックスリスト＝全AWSアカウントのCloudFrontを許可するため、未設定だと第三者が自前のディストリビューションでオリジンへ直接到達できる。生成: `openssl rand -hex 32`。空/未設定なら検証は無効（CloudFront側もヘッダーを送らない）＝設定漏れで全断しない。Terraform利用時は`terraform.tfvars`の`origin_verify_secret`に設定すれば`user_data.sh`が`.env`へ書き込む。**適用順序に注意**（`aws/README.md`の「Origin verification」参照） |
 | `FRONTEND_URL` | サイトの公開URL（デフォルト: `http://localhost:3000`）。ICS内の予定リンクとDiscord通知のリンクに使用。本番ではCloudFront URLを指定。未設定だとこれらのURLがlocalhostになる |
 
 ### フロントエンド

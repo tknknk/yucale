@@ -156,8 +156,19 @@ services:
     restart: unless-stopped
     ports:
       - "3000:80"
+    environment:
+      # CloudFront がオリジンリクエストに付ける共有シークレット。nginx イメージの
+      # エントリポイントが envsubst でテンプレートに差し込む。
+      #
+      # 「:-」で必ず定義させること。未定義のままだと envsubst はリテラルの
+      # ${ORIGIN_VERIFY_SECRET} を残し、どのリクエストとも一致せず全リクエストが
+      # 403 になる（=全断）。空文字なら検証が無効化されるだけで済む。
+      ORIGIN_VERIFY_SECRET: ${ORIGIN_VERIFY_SECRET:-}
+      # テンプレートの出力先。既定は /etc/nginx/conf.d だが、この構成は
+      # nginx.conf 全体を差し替えるので /etc/nginx へ出す。
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx
     volumes:
-      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.prod.conf.template:/etc/nginx/templates/nginx.conf.template:ro
     depends_on:
       frontend:
         condition: service_healthy

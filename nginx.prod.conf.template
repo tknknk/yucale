@@ -23,6 +23,21 @@ http {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
 
+    # CloudFront がオリジンリクエストに付与する共有シークレットの検証。
+    #
+    # セキュリティグループは CloudFront のマネージドプレフィックスリストを許可する
+    # が、これは「全AWSアカウントのCloudFront」を意味する。つまり第三者が自分の
+    # ディストリビューションをこのEIPに向けるだけで、本来のCloudFrontを迂回して
+    # オリジンに直接到達できてしまう。そのため共有シークレットで発信元を確認する。
+    #
+    # ORIGIN_VERIFY_SECRET が未設定なら envsubst で空文字に展開され、"" が
+    # 「ヘッダー無し」にマッチして 1 になる = 検証が無効化されるだけで済む。
+    # 設定漏れでサイト全体が403になるより安全側に倒している。
+    map $http_x_origin_verify $origin_verified {
+        default                   0;
+        "${ORIGIN_VERIFY_SECRET}" 1;
+    }
+
     upstream backend {
         server backend:8080;
     }
@@ -34,6 +49,14 @@ http {
     server {
         listen 80;
         server_name _;
+
+        # 本来のCloudFront以外からのオリジン直叩きを拒否する。
+        # 運用でオリジンを直接叩いて切り分けたい場合は
+        #   curl -H "X-Origin-Verify: <secret>" http://<eip>:3000/api/health
+        # のようにヘッダーを付ける。
+        if ($origin_verified = 0) {
+            return 403;
+        }
 
         # API requests -> Spring Boot
         location /api/ {
