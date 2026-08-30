@@ -17,7 +17,9 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        # No explicit dialect: Hibernate resolves it from the JDBC connection.
+        # Pinning PostgreSQLDialect here also leaked into the tests, which run on
+        # H2 — Hibernate then emitted PostgreSQL-only DDL that H2 rejected.
         format_sql: true
 
   session:
