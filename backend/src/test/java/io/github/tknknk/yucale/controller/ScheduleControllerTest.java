@@ -30,6 +30,8 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -118,6 +120,61 @@ class ScheduleControllerTest {
                     .andExpect(jsonPath("$.data.size").value(10))
                     .andExpect(jsonPath("$.data.hasNext").value(true))
                     .andExpect(jsonPath("$.data.hasPrevious").value(true));
+        }
+
+        @Test
+        @DisplayName("sizeが範囲外の場合は400エラー（0以下）")
+        void getAllSchedules_invalidSizeTooLow() throws Exception {
+            // Act & Assert
+            mockMvc.perform(get("/api/schedules")
+                            .param("size", "0"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("sizeは1から100の間で指定してください"));
+
+            verify(scheduleService, never()).getAllSchedules(anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("sizeが範囲外の場合は400エラー（101以上）- 全件取得によるDoSを防ぐ")
+        void getAllSchedules_invalidSizeTooHigh() throws Exception {
+            // Act & Assert
+            mockMvc.perform(get("/api/schedules")
+                            .param("size", "1000000"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("sizeは1から100の間で指定してください"));
+
+            verify(scheduleService, never()).getAllSchedules(anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("sizeが上限ちょうど（100）の場合は取得できる")
+        void getAllSchedules_sizeAtUpperBound() throws Exception {
+            // Arrange
+            Page<ScheduleDto> page = new PageImpl<>(
+                    Arrays.asList(createTestScheduleDto(1L)), PageRequest.of(0, 100), 1);
+            when(scheduleService.getAllSchedules(0, 100)).thenReturn(page);
+
+            // Act & Assert
+            mockMvc.perform(get("/api/schedules")
+                            .param("size", "100"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.size").value(100));
+        }
+
+        @Test
+        @DisplayName("pageが負の場合は400エラー")
+        void getAllSchedules_negativePage() throws Exception {
+            // Act & Assert
+            mockMvc.perform(get("/api/schedules")
+                            .param("page", "-1"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("pageは0以上で指定してください"));
+
+            verify(scheduleService, never()).getAllSchedules(anyInt(), anyInt());
         }
     }
 

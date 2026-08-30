@@ -28,6 +28,9 @@ public class ScheduleController {
 
     private final ScheduleService scheduleService;
 
+    /** Upper bound for the page size, matching the limit on /upcoming. */
+    private static final int MAX_PAGE_SIZE = 100;
+
     /**
      * GET /api/schedules - Get all schedules with pagination (public)
      */
@@ -35,6 +38,18 @@ public class ScheduleController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> getAllSchedules(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+
+        // Bound the page size: this endpoint is public, so an unbounded size
+        // would let anyone load the whole table in a single request.
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("sizeは1から" + MAX_PAGE_SIZE + "の間で指定してください"));
+        }
+
+        if (page < 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("pageは0以上で指定してください"));
+        }
 
         Page<ScheduleDto> schedulePage = scheduleService.getAllSchedules(page, size);
 

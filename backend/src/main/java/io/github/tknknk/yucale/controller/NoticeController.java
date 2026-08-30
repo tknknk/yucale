@@ -26,6 +26,9 @@ public class NoticeController {
 
     private final NoticeService noticeService;
 
+    /** Upper bound for the page size, matching ScheduleController. */
+    private static final int MAX_PAGE_SIZE = 100;
+
     /**
      * GET /api/notices/latest - Get the latest 3 notices (public)
      */
@@ -42,6 +45,16 @@ public class NoticeController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> getAllNotices(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("sizeは1から" + MAX_PAGE_SIZE + "の間で指定してください"));
+        }
+
+        if (page < 0) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("pageは0以上で指定してください"));
+        }
 
         Page<NoticeDto> noticePage = noticeService.getAllNotices(page, size);
 
