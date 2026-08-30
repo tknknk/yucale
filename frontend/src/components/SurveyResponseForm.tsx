@@ -7,9 +7,17 @@ import { Survey, SurveyDetail, SubmitSurveyResponseRequest, SurveyResponse } fro
 import { submitSurveyResponses } from '@/lib/surveys';
 import { validateMandatoryFields } from '@/lib/surveyValidation';
 import { linkifyText } from '@/lib/linkify';
-import { format, parseISO, isPast } from 'date-fns';
-import { ja } from 'date-fns/locale';
+import { formatEventPeriod, formatEventStart } from '@/lib/eventDateTime';
+import { parseISO, isPast } from 'date-fns';
 import LoadingSpinner from './LoadingSpinner';
+
+// ログインすれば解決するエラー（ユーザー名が登録済み／そのユーザー名で回答済み）は、
+// 赤いエラーではなくログインボタン付きの案内として出す
+const needsLogin = (message: string): boolean => message.includes('ログイン');
+
+// existingResponses の既定値。毎レンダリングで [] を作ると、これを依存に持つ
+// useMemo → reset の useEffect が再帰的に走り続けるので定数を共有する。
+const NO_EXISTING_RESPONSES: SurveyResponse[] = [];
 
 interface SurveyResponseFormProps {
   survey: Survey;
@@ -72,7 +80,7 @@ function ScheduleDetailInfo({ detail }: { detail: SurveyDetail }) {
 
 export default function SurveyResponseForm({
   survey,
-  existingResponses = [],
+  existingResponses = NO_EXISTING_RESPONSES,
   defaultUserName = '',
   isAuthenticated = false,
   onSuccess,
@@ -231,7 +239,7 @@ export default function SurveyResponseForm({
                 <div key={detail.id} className="border border-gray-200 rounded-md p-3 bg-white">
                   <div className="font-medium text-gray-900 text-sm">{detail.scheduleSummary}</div>
                   <div className="text-xs text-gray-800 mb-2">
-                    {format(parseISO(detail.scheduleDtstart), 'yyyy/MM/dd (E) HH:mm', { locale: ja })}
+                    {formatEventStart(detail.scheduleDtstart, detail.scheduleAllDay)}
                   </div>
                   <div className="mb-2 text-xs">
                     <ScheduleDetailInfo detail={detail} />
@@ -299,9 +307,9 @@ export default function SurveyResponseForm({
       )}
 
       {submitError && (
-        submitError.includes('このユーザー名は既に登録されています') ? (
+        needsLogin(submitError) ? (
           <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
-            <p className="text-amber-700 mb-2">このユーザー名は既に登録されています。ログインして回答してください。</p>
+            <p className="text-amber-700 mb-2">{submitError}</p>
             <Link
               href="/login"
               className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-amber-600 border border-transparent rounded-md shadow-sm hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
@@ -411,9 +419,7 @@ export default function SurveyResponseForm({
               )}
             </div>
             <div className="text-sm text-gray-800">
-              {format(parseISO(detail.scheduleDtstart), 'yyyy/MM/dd (E) HH:mm', { locale: ja })}
-              {' - '}
-              {format(parseISO(detail.scheduleDtend), 'HH:mm', { locale: ja })}
+              {formatEventPeriod(detail.scheduleDtstart, detail.scheduleDtend, detail.scheduleAllDay)}
             </div>
 
             <ScheduleDetailInfo detail={detail} />

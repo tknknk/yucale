@@ -227,6 +227,23 @@ class SurveyServiceTest {
         }
 
         @Test
+        @DisplayName("スケジュールの終日フラグを詳細に含める")
+        void shouldIncludeScheduleAllDayFlag() {
+            // 準備
+            testSchedule.setAllDay(true);
+            testSurvey.getDetails().add(testDetail);
+            when(surveyRepository.findByUrlIdWithDetails("surv001"))
+                    .thenReturn(Optional.of(testSurvey));
+
+            // 実行
+            SurveyDto result = surveyService.getSurveyByUrlId("surv001");
+
+            // 検証
+            assertThat(result.getDetails()).hasSize(1);
+            assertThat(result.getDetails().get(0).getScheduleAllDay()).isTrue();
+        }
+
+        @Test
         @DisplayName("存在しない出欠調査の場合、例外をスロー")
         void shouldThrowExceptionWhenNotFound() {
             // 準備

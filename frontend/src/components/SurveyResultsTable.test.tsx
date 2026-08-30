@@ -355,6 +355,30 @@ describe('SurveyResultsTable', () => {
       const summarySection = screen.getByText('回答集計（参加者数）').closest('div');
       expect(summarySection).toBeInTheDocument();
     });
+
+    it('should show the start time for a timed schedule', () => {
+      render(<SurveyResultsTable survey={mockSurveyWithResponses} />);
+
+      expect(screen.getByText('02/01 (木) 10:00')).toBeInTheDocument();
+    });
+
+    it('should hide the time for an all-day schedule', () => {
+      const allDaySurvey: Survey = {
+        ...mockSurveyWithResponses,
+        details: [
+          {
+            ...mockSurveyWithResponses.details![0],
+            scheduleDtstart: '2024-02-01T00:00:00',
+            scheduleDtend: '2024-02-01T00:00:00',
+            scheduleAllDay: true,
+          },
+        ],
+      };
+      render(<SurveyResultsTable survey={allDaySurvey} />);
+
+      expect(screen.getByText('02/01 (木)')).toBeInTheDocument();
+      expect(screen.queryByText(/00:00/)).not.toBeInTheDocument();
+    });
   });
 
   describe('detailed responses table', () => {

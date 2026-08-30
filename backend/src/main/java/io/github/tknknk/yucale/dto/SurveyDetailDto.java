@@ -19,6 +19,7 @@ public class SurveyDetailDto {
     private String scheduleSummary;
     private LocalDateTime scheduleDtstart;
     private LocalDateTime scheduleDtend;
+    private Boolean scheduleAllDay;
     private String scheduleLocation;
     private String scheduleSong;
     private String scheduleDescription;

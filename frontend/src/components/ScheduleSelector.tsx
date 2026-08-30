@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import { Schedule } from '@/types/schedule';
 import { schedulesApi } from '@/lib/schedules';
 import { surveysApi } from '@/lib/surveys';
-import { format, parseISO } from 'date-fns';
-import { ja } from 'date-fns/locale';
+import { formatEventPeriod } from '@/lib/eventDateTime';
 import LoadingSpinner from './LoadingSpinner';
 
 interface ScheduleSelectorProps {
@@ -149,9 +148,7 @@ export default function ScheduleSelector({
                     {hasSurvey && <span className="ml-2 text-xs text-gray-400">(調査作成済)</span>}
                   </div>
                   <div className="text-sm text-gray-800">
-                    {format(parseISO(schedule.dtstart), 'yyyy/MM/dd (E) HH:mm', { locale: ja })}
-                    {' - '}
-                    {format(parseISO(schedule.dtend), 'HH:mm', { locale: ja })}
+                    {formatEventPeriod(schedule.dtstart, schedule.dtend, schedule.allDay)}
                   </div>
                 </div>
               </div>
