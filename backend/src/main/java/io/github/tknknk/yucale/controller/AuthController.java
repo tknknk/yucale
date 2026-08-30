@@ -53,6 +53,17 @@ public class AuthController {
             securityContext.setAuthentication(authentication);
             SecurityContextHolder.setContext(securityContext);
 
+            // Rotate the session id before the session becomes authenticated.
+            // Otherwise a session id an attacker planted in the visitor's browser
+            // is promoted to an authenticated session by registering (session
+            // fixation). Spring Security applies the same changeSessionId
+            // strategy on form login; this path builds the session by hand, so it
+            // has to rotate explicitly. Skipped when no session exists yet:
+            // there is nothing to fixate on, and changeSessionId() would throw.
+            if (httpServletRequest.getSession(false) != null) {
+                httpServletRequest.changeSessionId();
+            }
+
             // Save security context to session
             HttpSession session = httpServletRequest.getSession(true);
             session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);

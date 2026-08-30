@@ -21,12 +21,17 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import java.time.LocalDateTime;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -109,6 +114,81 @@ class AuthControllerTest {
                     .andExpect(jsonPath("$.message").value("登録が完了しました"))
                     .andExpect(jsonPath("$.data.username").value("newuser"))
                     .andExpect(jsonPath("$.data.email").value("newuser@example.com"));
+        }
+
+        @Test
+        @DisplayName("既存セッションがある場合、登録時にセッションIDが変わる（セッション固定攻撃対策）")
+        void register_rotatesExistingSessionId() throws Exception {
+            // Arrange - 攻撃者が仕込んだ想定の既存セッション
+            MockHttpSession plantedSession = new MockHttpSession();
+            String plantedSessionId = plantedSession.getId();
+
+            stubSuccessfulRegistration();
+
+            // Act
+            MvcResult result = mockMvc.perform(post("/api/auth/register")
+                            .session(plantedSession)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRegisterRequest())))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+            // Assert - 認証済みになったセッションのIDは仕込まれたIDと別物であること
+            HttpSession session = result.getRequest().getSession(false);
+            assertThat(session).isNotNull();
+            assertThat(session.getId()).isNotEqualTo(plantedSessionId);
+            assertThat(session.getAttribute(
+                    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY)).isNotNull();
+        }
+
+        @Test
+        @DisplayName("既存セッションが無い場合も登録でき、認証済みセッションが作られる")
+        void register_createsSessionWhenNoneExists() throws Exception {
+            // Arrange
+            stubSuccessfulRegistration();
+
+            // Act
+            MvcResult result = mockMvc.perform(post("/api/auth/register")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(validRegisterRequest())))
+                    .andExpect(status().isCreated())
+                    .andReturn();
+
+            // Assert - セッションが無い状態でchangeSessionId()を呼ばず、正常に発行されること
+            HttpSession session = result.getRequest().getSession(false);
+            assertThat(session).isNotNull();
+            assertThat(session.getAttribute(
+                    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY)).isNotNull();
+        }
+
+        private RegisterRequest validRegisterRequest() {
+            return RegisterRequest.builder()
+                    .username("newuser")
+                    .email("newuser@example.com")
+                    .password("password123")
+                    .build();
+        }
+
+        private void stubSuccessfulRegistration() {
+            UserDto createdUser = UserDto.builder()
+                    .id(1L)
+                    .username("newuser")
+                    .email("newuser@example.com")
+                    .role(Role.NO_ROLE)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            org.springframework.security.core.userdetails.User mockUserDetails =
+                new org.springframework.security.core.userdetails.User(
+                    "newuser@example.com",
+                    "password",
+                    java.util.Collections.singletonList(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_NO_ROLE")
+                    )
+                );
+
+            when(authService.register(any(RegisterRequest.class))).thenReturn(createdUser);
+            when(customUserDetailsService.loadUserByUsername("newuser@example.com")).thenReturn(mockUserDetails);
         }
 
         @Test
