@@ -11,15 +11,22 @@ function LoginContent() {
   const { login, isLoading, isAuthenticated } = useAuthContext();
   const isExpired = searchParams.get('expired') === 'true';
 
+  // ログイン後の遷移先。外部サイトへ飛ばされないよう自サイト内のパスのみ許可する
+  const redirectParam = searchParams.get('redirect');
+  const redirectTo =
+    redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
+      ? redirectParam
+      : '/';
+
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/');
+      router.push(redirectTo);
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, redirectTo]);
 
   const handleSubmit = async (data: LoginFormData) => {
     await login({ email: data.email, password: data.password });
-    router.push('/');
+    router.push(redirectTo);
   };
 
   // Show nothing while checking auth or if already authenticated

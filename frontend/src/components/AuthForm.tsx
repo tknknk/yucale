@@ -38,9 +38,11 @@ interface AuthFormProps {
   mode: 'login' | 'register';
   onSubmit: (data: LoginFormData | RegisterFormData) => Promise<void>;
   isLoading?: boolean;
+  /** 登録フォームのユーザー名初期値（非ログイン回答からの登録で使う） */
+  defaultUsername?: string;
 }
 
-export default function AuthForm({ mode, onSubmit, isLoading = false }: AuthFormProps) {
+export default function AuthForm({ mode, onSubmit, isLoading = false, defaultUsername = '' }: AuthFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -51,7 +53,9 @@ export default function AuthForm({ mode, onSubmit, isLoading = false }: AuthForm
     handleSubmit,
     watch,
     formState: { errors },
-  } = useForm<RegisterFormData>();
+  } = useForm<RegisterFormData>({
+    defaultValues: { username: defaultUsername },
+  });
 
   const password = watch('password');
 

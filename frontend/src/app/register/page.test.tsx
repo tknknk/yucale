@@ -3,12 +3,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RegisterPage from './page';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 // Mock the modules
 jest.mock('@/contexts/AuthContext');
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
+  useSearchParams: jest.fn(),
 }));
 jest.mock('next/link', () => {
   return ({ children, href }: { children: React.ReactNode; href: string }) => (
@@ -18,6 +19,7 @@ jest.mock('next/link', () => {
 
 const mockUseAuthContext = useAuthContext as jest.MockedFunction<typeof useAuthContext>;
 const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>;
+const mockUseSearchParams = useSearchParams as jest.MockedFunction<typeof useSearchParams>;
 
 describe('RegisterPage', () => {
   const mockPush = jest.fn();
@@ -34,6 +36,9 @@ describe('RegisterPage', () => {
       replace: jest.fn(),
       prefetch: jest.fn(),
     });
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams() as unknown as ReturnType<typeof useSearchParams>
+    );
   });
 
   describe('when not authenticated', () => {
@@ -49,6 +54,23 @@ describe('RegisterPage', () => {
         checkAuth: jest.fn(),
         refreshUser: jest.fn(),
       });
+    });
+
+    it('should prefill the username from the query string', () => {
+      // 非ログインで回答した名前を引き継ぐ
+      mockUseSearchParams.mockReturnValue(
+        new URLSearchParams('username=ゆうと') as unknown as ReturnType<typeof useSearchParams>
+      );
+
+      render(<RegisterPage />);
+
+      expect(screen.getByLabelText(/ユーザー名/)).toHaveValue('ゆうと');
+    });
+
+    it('should leave the username empty without the query string', () => {
+      render(<RegisterPage />);
+
+      expect(screen.getByLabelText(/ユーザー名/)).toHaveValue('');
     });
 
     it('should render register form', () => {

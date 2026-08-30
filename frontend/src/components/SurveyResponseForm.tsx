@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Survey, SurveyDetail, SubmitSurveyResponseRequest, SurveyResponse } from '@/types/survey';
 import { submitSurveyResponses } from '@/lib/surveys';
 import { validateMandatoryFields } from '@/lib/surveyValidation';
@@ -93,6 +94,16 @@ export default function SurveyResponseForm({
   const isDeadlinePassed = survey.deadlineAt ? isPast(parseISO(survey.deadlineAt)) : false;
   const canRespondAfterDeadline = survey.softDue === true;
   const isResponseDisabled = isDeadlinePassed && !canRespondAfterDeadline;
+
+  // ログイン後にこの出欠調査へ戻れるようにする
+  const pathname = usePathname();
+  const loginHref = pathname ? `/login?redirect=${encodeURIComponent(pathname)}` : '/login';
+
+  // アカウントを持つ人が非ログインのまま回答すると、あとから回答を編集できなくなる。
+  // 回答できる状態のときだけ、先にログインするよう案内する。
+  // 送信エラー側でログインを促している場合は重複するので出さない。
+  const showLoginGuide =
+    !isAuthenticated && !isResponseDisabled && !(submitError !== null && needsLogin(submitError));
 
   // Build form values from existing responses
   const formValues = useMemo(() => {
@@ -207,7 +218,7 @@ export default function SurveyResponseForm({
                 回答を編集するには、同じユーザー名（{submittedData.userName}）でアカウント作成してください。
               </p>
               <Link
-                href="/register"
+                href={`/register?username=${encodeURIComponent(submittedData.userName)}`}
                 className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
                 アカウント作成
@@ -297,6 +308,23 @@ export default function SurveyResponseForm({
           {isResponseDisabled
             ? 'この出欠調査は締め切りました'
             : '回答締切を過ぎていますが、回答/編集が可能です'}
+        </div>
+      )}
+
+      {showLoginGuide && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+          <p className="text-blue-700 text-sm">
+            アカウントを登録済みの場合はログインしてから回答してください。
+          </p>
+          <p className="mt-1 text-blue-700 text-xs">
+            ログインすると、送信した回答をあとから編集できます。
+          </p>
+          <Link
+            href={loginHref}
+            className="mt-3 inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          >
+            ログインする
+          </Link>
         </div>
       )}
 

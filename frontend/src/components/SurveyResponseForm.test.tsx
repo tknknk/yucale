@@ -54,6 +54,54 @@ describe('SurveyResponseForm', () => {
     window.scrollTo = jest.fn();
   });
 
+  describe('login guidance for guests', () => {
+    it('should ask a guest to log in before responding', () => {
+      render(<SurveyResponseForm survey={mockSurvey} />);
+
+      expect(
+        screen.getByText('アカウントを登録済みの場合はログインしてから回答してください。')
+      ).toBeInTheDocument();
+      // ログイン後は元の出欠調査へ戻す
+      expect(screen.getByRole('link', { name: 'ログインする' })).toHaveAttribute(
+        'href',
+        '/login?redirect=%2F'
+      );
+    });
+
+    it('should not ask a logged-in user to log in', () => {
+      render(<SurveyResponseForm survey={mockSurvey} isAuthenticated />);
+
+      expect(
+        screen.queryByRole('link', { name: 'ログインする' })
+      ).not.toBeInTheDocument();
+    });
+
+    it('should not ask for login on a closed survey', () => {
+      const closedSurvey = { ...mockSurvey, deadlineAt: '2020-01-01T00:00:00' };
+      render(<SurveyResponseForm survey={closedSurvey} />);
+
+      expect(
+        screen.queryByRole('link', { name: 'ログインする' })
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('after a guest submits', () => {
+    it('should carry the entered name over to the register page', async () => {
+      mockSubmit.mockResolvedValue([]);
+
+      render(<SurveyResponseForm survey={mockSurvey} />);
+
+      fireEvent.change(screen.getByLabelText(/ユーザー名/), {
+        target: { value: 'ゆうと' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '回答を送信' }));
+
+      const registerLink = await screen.findByRole('link', { name: 'アカウント作成' });
+      expect(registerLink).toHaveAttribute('href', '/register?username=%E3%82%86%E3%81%86%E3%81%A8');
+    });
+  });
+
   describe('errors that logging in would resolve', () => {
     it('should offer a login link when the name has already responded', async () => {
       await submitWithApiError(
@@ -67,6 +115,10 @@ describe('SurveyResponseForm', () => {
       await submitWithApiError('このユーザー名は既に登録されています。ログインして回答してください。');
 
       expect(screen.getByRole('link', { name: 'ログイン' })).toHaveAttribute('href', '/login');
+      // 上部のログイン案内と重複させない
+      expect(
+        screen.queryByRole('link', { name: 'ログインする' })
+      ).not.toBeInTheDocument();
     });
 
     it('should not offer a login link for unrelated errors', async () => {
