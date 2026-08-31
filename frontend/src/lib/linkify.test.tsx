@@ -22,6 +22,18 @@ describe('getLinkLabel', () => {
     expect(getLinkLabel('https://docs.example.co.jp/page')).toBe('docs.example.co.jp/…');
   });
 
+  it('should show only the path, without the leading slash, for a URL on the current hostname', () => {
+    expect(getLinkLabel(`${window.location.origin}/survey/abc`)).toBe('survey/abc');
+    expect(getLinkLabel(`${window.location.origin}/survey/abc?tab=results#top`)).toBe(
+      'survey/abc?tab=results#top'
+    );
+  });
+
+  it('should show the hostname for the top page of the current hostname', () => {
+    expect(getLinkLabel(window.location.origin)).toBe(window.location.hostname);
+    expect(getLinkLabel(`${window.location.origin}/`)).toBe(window.location.hostname);
+  });
+
   it('should fall back to the original string when parsing fails', () => {
     expect(getLinkLabel('not a url')).toBe('not a url');
   });
@@ -69,12 +81,32 @@ describe('linkifyText', () => {
     expect(links[1]).toHaveAttribute('href', 'http://test.org/b');
   });
 
-  it('should not open same-origin links in a new tab', () => {
+  it('should not open same-origin links in a new tab, and label them with the path', () => {
     render(<p>{linkifyText(`${window.location.origin}/schedule/abc`)}</p>);
 
-    const link = screen.getByRole('link');
+    const link = screen.getByRole('link', { name: 'schedule/abc' });
+    expect(link).toHaveAttribute('href', `${window.location.origin}/schedule/abc`);
     expect(link).not.toHaveAttribute('target');
     expect(link).not.toHaveAttribute('rel');
+  });
+
+  it('should not swallow a multibyte character that follows the URL', () => {
+    const { container } = render(<p>{linkifyText('会場はhttps://example.com/abcです')}</p>);
+
+    expect(screen.getByRole('link')).toHaveAttribute('href', 'https://example.com/abc');
+    expect(container.textContent).toBe('会場はexample.com/…です');
+  });
+
+  it('should not swallow a multibyte character that follows a same-origin URL', () => {
+    const { container } = render(
+      <p>{linkifyText(`${window.location.origin}/survey/abcです`)}</p>
+    );
+
+    expect(screen.getByRole('link')).toHaveAttribute(
+      'href',
+      `${window.location.origin}/survey/abc`
+    );
+    expect(container.textContent).toBe('survey/abcです');
   });
 
   it('should accept a custom link class name', () => {

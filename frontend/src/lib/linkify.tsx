@@ -1,7 +1,9 @@
 import { ReactNode } from 'react';
 
-// URL正規表現パターン
-export const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
+// URL正規表現パターン。
+// 本文ではURLの直後にスペースなしで日本語が続くことがあるため（「…/abcです」など）、
+// URLに使えるASCII文字だけを拾って全角文字を巻き込まないようにする。
+export const URL_REGEX = /(https?:\/\/[A-Za-z0-9\-._~:/?#@!$&'()*+,;=%]+)/g;
 
 const DEFAULT_LINK_CLASS = 'text-primary-600 hover:text-primary-700 underline break-all';
 
@@ -16,22 +18,28 @@ export function isSameOrigin(url: string): boolean {
 }
 
 // リンクの表示ラベルを取得する関数。
-// 長いURLでレイアウトが崩れないよう、ドメイン（www.は除去）までに切り詰める。
+// 外部URLは長いとレイアウトが崩れるので、ドメイン（www.は除去）までに切り詰め、
 // パス・クエリ・ハッシュが続く場合は省略されたことが分かるよう「/…」を付ける。
+// 自サイトのURLはドメインが自明なので、逆にドメイン以降だけを
+// 先頭のスラッシュと省略記号なしで表示する。
 // パースできない場合は元のURLをそのまま表示する。
 export function getLinkLabel(url: string): string {
   try {
     const parsed = new URL(url);
+    const path = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    // ドメイン直下（パスなし）は自サイトでも表示するものがないのでホスト名を出す
+    const hasPath = path !== '/';
+    if (hasPath && isSameOrigin(url)) {
+      return path.replace(/^\//, '');
+    }
     const hostname = parsed.hostname.replace(/^www\./, '');
-    const hasMore =
-      (parsed.pathname && parsed.pathname !== '/') || !!parsed.search || !!parsed.hash;
-    return hasMore ? `${hostname}/…` : hostname;
+    return hasPath ? `${hostname}/…` : hostname;
   } catch {
     return url;
   }
 }
 
-// テキスト内のURLを、ドメインまでを表示するリンクに変換する関数
+// テキスト内のURLを、短縮表示（getLinkLabel）のリンクに変換する関数
 export function linkifyText(text: string, linkClassName: string = DEFAULT_LINK_CLASS): ReactNode[] {
   const parts = text.split(URL_REGEX);
   return parts.map((part, index) => {
