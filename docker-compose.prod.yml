@@ -105,7 +105,18 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384M
+          # Raised from 384M together with the JVM sizing in backend/Dockerfile,
+          # which now commits its heap up front (-Xms == -Xmx = 192m).
+          # Measured anonymous RSS of the new image under light load:
+          #   at 448M limit -> 326 MiB (73%, ~122 MiB headroom)
+          #   at 384M limit -> 305 MiB (79%, ~79 MiB headroom)
+          # 384M does still boot and run -- this is headroom, not a hard
+          # requirement -- but metaspace may grow another ~40 MiB before hitting
+          # its new 128m ceiling, and that growth has to land somewhere. The old
+          # 384M container was already at 95% (366 MiB) when it OOMed.
+          # A ceiling, not a reservation: measured RSS of the other services is
+          # far below their limits, so the 1 GB host still fits.
+          memory: 448M
 
   frontend:
     image: ghcr.io/tknknk/yucale/frontend:latest
