@@ -347,8 +347,30 @@ curl -fsSL -o /opt/yucale/health-check.sh https://raw.githubusercontent.com/tknk
 sudo chmod +x /opt/yucale/health-check.sh
 
 sudo /opt/yucale/health-check.sh --dry-run   # まず結果を確認（通知は送らない）
+sudo /opt/yucale/health-check.sh --force     # Discord へ届くか1通送って確認
 sudo /opt/yucale/health-check.sh --install-cron
 ```
+
+### スケジューラ
+
+Amazon Linux 2023 には **cron が入っていません**（`cronie` 未インストール、`/etc/cron.d` も
+`crontab` コマンドも存在しない）。`--install-cron` は systemd があればタイマーを、
+`/etc/cron.d` があれば cron エントリを設置します。AL2023 では前者になるため、
+パッケージの追加インストールは不要です。
+
+```bash
+systemctl list-timers yucale-health.timer    # 次回実行予定
+systemctl status yucale-health.service       # 前回の実行結果
+journalctl -u yucale-health.service          # 実行履歴
+tail -f /var/log/yucale-health.log           # 出力（weekly ローテート・4世代保持）
+```
+
+停止する場合は `sudo systemctl disable --now yucale-health.timer` です。
+
+> スクリプトは警告で終了コード1、危険で2を返します。ユニットは
+> `SuccessExitStatus=0 1 2` を指定しているため、これらは `systemctl --failed` に
+> 現れません。ユニットが failed になっていたら、それは**スクリプト自体が動かなかった**
+> ということです。
 
 Webhook は `/opt/yucale/.env` の `DISCORD_WEBHOOK_URL` を読むので、追加設定は不要です
 （アプリの通知と同じ Webhook を使います）。

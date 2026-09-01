@@ -88,7 +88,9 @@ OPTIONS:
     -d, --dir DIR       Application directory. Default: /opt/yucale
     -n, --dry-run       Run the checks and print the report; send nothing
     -f, --force         Send to Discord even if nothing changed since last run
-    --install-cron      Install the hourly cron entry and exit
+    --install-cron      Install the hourly schedule and exit. Uses a systemd
+                        timer where systemd is present (Amazon Linux 2023 ships
+                        no cron at all), otherwise /etc/cron.d
     -h, --help          Show this help message
 
 EXIT CODES:
@@ -403,19 +405,134 @@ send_discord() {
     return 1
 }
 
-install_cron() {
-    local script_path
-    script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-    local entry="17 * * * * root ${script_path} >> /var/log/yucale-health.log 2>&1"
+# Where the hourly run's output lands, for both scheduler back-ends below.
+HEALTH_LOG="${HEALTH_LOG:-/var/log/yucale-health.log}"
+UNIT_NAME="yucale-health"
+
+# Keeps the hourly output from growing without bound. Both back-ends reopen the
+# log at every invocation, so a plain rename-and-recreate is safe -- no process
+# is holding the old file descriptor between runs, which is why this does not
+# need copytruncate and its truncate-while-writing race.
+install_logrotate() {
+    if [[ ! -d /etc/logrotate.d ]]; then
+        log_warning "/etc/logrotate.d not found — ${HEALTH_LOG} will grow unbounded"
+        return 0
+    fi
+
+    cat > /etc/logrotate.d/yucale-health <<EOF || { log_error "Cannot write /etc/logrotate.d/yucale-health"; return 1; }
+${HEALTH_LOG} {
+    weekly
+    rotate 4
+    missingok
+    notifempty
+    compress
+    delaycompress
+}
+EOF
+    chmod 644 /etc/logrotate.d/yucale-health || return 1
+    log_info "Log rotation: weekly, 4 kept (/etc/logrotate.d/yucale-health)"
+}
+
+# Amazon Linux 2023 ships no cron at all -- no cronie, no /etc/cron.d, no
+# crontab binary -- so the original cron.d-only version of this wrote into a
+# directory that does not exist. systemd is present and already running, which
+# makes a timer the option that needs nothing installed. cron.d is still
+# honoured when it exists, for hosts that do have it.
+install_systemd_timer() {
+    local script_path="$1"
+    local service="/etc/systemd/system/${UNIT_NAME}.service"
+    local timer="/etc/systemd/system/${UNIT_NAME}.timer"
+
+    cat > "$service" <<EOF || { log_error "Cannot write $service"; return 1; }
+[Unit]
+Description=Yucale health check
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=${script_path}
+# The script exits 1 on a warning and 2 on a critical finding. Those are its
+# report, not a failure to run: without this, every hour in which anything is
+# amiss would also leave a failed unit sitting in \`systemctl --failed\`.
+SuccessExitStatus=0 1 2
+StandardOutput=append:${HEALTH_LOG}
+StandardError=append:${HEALTH_LOG}
+EOF
+
+    cat > "$timer" <<EOF || { log_error "Cannot write $timer"; return 1; }
+[Unit]
+Description=Run the Yucale health check hourly
+
+[Timer]
+OnCalendar=*:17
+# Catch up once if the instance was down when a run came due.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    chmod 644 "$service" "$timer" || { log_error "Cannot set permissions on the unit files"; return 1; }
+    systemctl daemon-reload || { log_error "systemctl daemon-reload failed"; return 1; }
+    # enable --now is idempotent: re-running this re-reads the units rather than
+    # stacking a second schedule.
+    systemctl enable --now "${UNIT_NAME}.timer" >/dev/null 2>&1 || {
+        log_error "Failed to enable ${UNIT_NAME}.timer"
+        systemctl status "${UNIT_NAME}.timer" --no-pager || true
+        return 1
+    }
+
+    log_success "Installed systemd timer ${UNIT_NAME}.timer"
+    log_info "Runs at 17 minutes past every hour; output goes to ${HEALTH_LOG}"
+    log_info "Next run:   systemctl list-timers ${UNIT_NAME}.timer"
+    log_info "Last result: systemctl status ${UNIT_NAME}.service"
+    systemctl list-timers "${UNIT_NAME}.timer" --no-pager 2>/dev/null || true
+}
+
+install_cron_d() {
+    local script_path="$1"
+    local cron_file="/etc/cron.d/yucale-health"
+    local entry="17 * * * * root ${script_path} >> ${HEALTH_LOG} 2>&1"
 
     # A file in cron.d rather than a crontab edit, so re-running this is
     # idempotent instead of appending a duplicate entry every time.
     printf '# Yucale hourly health check. Installed by health-check.sh --install-cron\n%s\n' "$entry" \
-        > /etc/cron.d/yucale-health
-    chmod 644 /etc/cron.d/yucale-health
+        > "$cron_file" || { log_error "Cannot write $cron_file"; return 1; }
+    chmod 644 "$cron_file" || { log_error "Cannot set permissions on $cron_file"; return 1; }
 
-    log_success "Installed /etc/cron.d/yucale-health"
-    log_info "Runs at 17 minutes past every hour; output goes to /var/log/yucale-health.log"
+    log_success "Installed $cron_file"
+    log_info "Runs at 17 minutes past every hour; output goes to ${HEALTH_LOG}"
+}
+
+install_schedule() {
+    local script_path
+    script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")" || {
+        log_error "Cannot resolve this script's own path"
+        return 1
+    }
+
+    # Both back-ends execute the file directly, so a script fetched with curl
+    # and run as `bash health-check.sh` would install a schedule that cannot
+    # start. Fix it here rather than failing an hour later, unobserved.
+    if [[ ! -x "$script_path" ]]; then
+        chmod +x "$script_path" || { log_error "Cannot make $script_path executable"; return 1; }
+        log_info "Made $script_path executable"
+    fi
+
+    install_logrotate || return 1
+
+    if command -v systemctl >/dev/null 2>&1 && [[ -d /etc/systemd/system ]]; then
+        install_systemd_timer "$script_path"
+    elif [[ -d /etc/cron.d ]]; then
+        install_cron_d "$script_path"
+    else
+        log_error "This host has neither systemd nor /etc/cron.d — nothing to install into."
+        log_info "Amazon Linux 2023 ships without cron; if you want it rather than a systemd timer:"
+        log_info "    sudo dnf install -y cronie && sudo systemctl enable --now crond"
+        log_info "then re-run this command."
+        return 1
+    fi
 }
 
 # Parse arguments
@@ -436,9 +553,9 @@ while [[ $# -gt 0 ]]; do
             FORCE=true
             shift
             ;;
-        --install-cron)
-            install_cron
-            exit 0
+        --install-cron|--install-schedule)
+            install_schedule
+            exit $?
             ;;
         -h|--help)
             show_usage
