@@ -136,18 +136,19 @@ resource "aws_instance" "main" {
 
   # User data script to setup Docker and application
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    aws_region           = var.aws_region
-    log_group_name       = aws_cloudwatch_log_group.ec2.name
-    s3_bucket_name       = aws_s3_bucket.ics.id
-    db_name              = var.db_name
-    db_username          = var.db_username
-    db_password          = var.db_password
-    admin_email          = var.admin_email
-    discord_webhook_url  = var.discord_webhook_url
-    app_port             = var.app_port
-    cors_allowed_origins = var.cors_allowed_origins
-    github_repo          = var.github_repo
-    origin_verify_secret = var.origin_verify_secret
+    aws_region                = var.aws_region
+    log_group_name            = aws_cloudwatch_log_group.ec2.name
+    s3_bucket_name            = aws_s3_bucket.ics.id
+    db_name                   = var.db_name
+    db_username               = var.db_username
+    db_password               = var.db_password
+    admin_email               = var.admin_email
+    discord_webhook_url       = var.discord_webhook_url
+    discord_webhook_debug_url = var.discord_webhook_debug_url
+    app_port                  = var.app_port
+    cors_allowed_origins      = var.cors_allowed_origins
+    github_repo               = var.github_repo
+    origin_verify_secret      = var.origin_verify_secret
   }))
 
   # Enable detailed monitoring (optional, adds ~$3/month)

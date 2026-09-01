@@ -372,8 +372,31 @@ tail -f /var/log/yucale-health.log           # 出力（weekly ローテート�
 > 現れません。ユニットが failed になっていたら、それは**スクリプト自体が動かなかった**
 > ということです。
 
-Webhook は `/opt/yucale/.env` の `DISCORD_WEBHOOK_URL` を読むので、追加設定は不要です
-（アプリの通知と同じ Webhook を使います）。
+### 通知先の振り分け
+
+`/opt/yucale/.env` の2つの Webhook を状態によって使い分けます。
+
+| 変数 | 送るもの |
+|---|---|
+| `DISCORD_WEBHOOK_URL` | **異常**（警告・危険）と**復旧通知**。アプリのロール申請通知と同じ Webhook |
+| `DISCORD_WEBHOOK_DEBUG_URL` | **正常時の定期レポート**（毎時） |
+
+```bash
+# 既存の .env に追記（アプリの再起動は不要。スクリプトが実行のたびに読みます）
+echo 'DISCORD_WEBHOOK_DEBUG_URL=https://discord.com/api/webhooks/xxx' | sudo tee -a /opt/yucale/.env
+sudo chmod 600 /opt/yucale/.env
+sudo /opt/yucale/health-check.sh --force   # debug チャンネルへ届くか確認
+```
+
+振り分けは**サービスの状態だけ**で決まり、実行方法では変わりません。正常な状態で
+`--force` を実行すると debug チャンネルに届きます（上のコマンドはこれを利用しています）。
+
+`DISCORD_WEBHOOK_DEBUG_URL` を設定しなければ、正常時は何も送りません（従来の挙動）。
+異常用チャンネルに毎時のOK通知が流れ込むことはありません。
+
+Terraform を使う場合は `terraform.tfvars` の `discord_webhook_debug_url` に設定してください。
+インスタンスを作り直したときに `.env` へ書き込まれます。手で `.env` に追記しただけだと、
+再作成時に失われます。
 
 ### なぜ CloudWatch ではないのか
 
@@ -398,9 +421,14 @@ publish する設定ですが、インスタンスロール（`ec2.tf` の `aws_
 
 ### 通知の頻度
 
-同じ内容の通知が毎時飛ばないよう、状態を `/var/lib/yucale/health-state` に保存し、
+異常時は、同じ内容が毎時飛ばないよう状態を `/var/lib/yucale/health-state` に保存し、
 **内容が変わったとき**か **`RENOTIFY_HOURS`（既定6時間）経過後**にのみ送信します。
-問題が解消したときは復旧通知を1度送るので、沈黙の意味が曖昧になりません。
+`--force` はこの抑制のみを無効化します（送信先は変わりません）。
+問題が解消したときは異常用チャンネルに復旧通知を1度送ります。
+
+正常時の debug チャンネルへの送信は抑制せず、毎時そのまま送ります。この定期送信が
+**監視自体の生存確認**を兼ねます。以前は正常時に何も送らなかったため、
+「サービスが正常」と「監視が止まった」が区別できませんでした。
 
 閾値は環境変数で変更できます（`MEM_WARN_PCT`、`DISK_CRIT_PCT` など。`--help` 参照）。
 

@@ -78,16 +78,22 @@ show_usage() {
 Usage: sudo $(basename "$0") [OPTIONS]
 
 Check the Yucale stack and post to Discord when something needs attention.
-Intended to run hourly from cron; safe to run by hand at any time.
+Intended to run hourly from a systemd timer; safe to run by hand at any time.
 
 Reports on: container state and health, restarts since the last run, per-
 container memory against its limit, host memory, disk, end-to-end HTTP through
 nginx, and any heap dump or OutOfMemoryError left by the backend.
 
+Findings go to DISCORD_WEBHOOK_URL; clean runs go to DISCORD_WEBHOOK_DEBUG_URL,
+both read from APP_DIR/.env. The channel follows the state of the service, not
+the options below -- so a --force on a healthy stack lands in the debug
+channel. Leaving DISCORD_WEBHOOK_DEBUG_URL unset makes clean runs silent
+instead of routing them to the alert channel.
+
 OPTIONS:
     -d, --dir DIR       Application directory. Default: /opt/yucale
     -n, --dry-run       Run the checks and print the report; send nothing
-    -f, --force         Send to Discord even if nothing changed since last run
+    -f, --force         Send even if the findings are unchanged since last run
     --install-cron      Install the hourly schedule and exit. Uses a systemd
                         timer where systemd is present (Amazon Linux 2023 ships
                         no cron at all), otherwise /etc/cron.d
@@ -379,12 +385,35 @@ json_escape() {
     python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
 }
 
+# Posts the report to one of two channels. Routing is decided by the state of
+# the service, never by how the script was invoked: findings go to the alert
+# webhook the team actually watches, and clean runs go to the debug one. That
+# keeps the alert channel to things that need a human, while the hourly "OK"
+# stream elsewhere doubles as proof the check itself is still running --
+# previously a clean run sent nothing at all, so a monitor that had silently
+# died looked exactly like a healthy service.
+#
+# $2: "alert" (default) or "debug".
 send_discord() {
     local report="$1"
+    local channel="${2:-alert}"
+    local url
 
-    if [[ -z "${DISCORD_WEBHOOK_URL:-}" ]]; then
-        log_warning "DISCORD_WEBHOOK_URL is not set in ${APP_DIR}/.env — printing instead of sending"
-        return 0
+    if [[ "$channel" == "debug" ]]; then
+        url="${DISCORD_WEBHOOK_DEBUG_URL:-}"
+        if [[ -z "$url" ]]; then
+            # Deliberately not falling back to the alert webhook: that would
+            # put an hourly OK report into the channel reserved for problems.
+            # Unset simply means clean runs stay quiet, as they did before.
+            log_info "DISCORD_WEBHOOK_DEBUG_URL is not set — staying quiet on a clean run"
+            return 0
+        fi
+    else
+        url="${DISCORD_WEBHOOK_URL:-}"
+        if [[ -z "$url" ]]; then
+            log_warning "DISCORD_WEBHOOK_URL is not set in ${APP_DIR}/.env — printing instead of sending"
+            return 0
+        fi
     fi
 
     local escaped
@@ -394,14 +423,14 @@ send_discord() {
     code=$(curl -sS --max-time 15 -o /dev/null -w '%{http_code}' \
         -H 'Content-Type: application/json' \
         -d "{\"content\": ${escaped}}" \
-        "$DISCORD_WEBHOOK_URL" 2>/dev/null) || code=000
+        "$url" 2>/dev/null) || code=000
 
     # Discord answers 204 No Content on success.
     if [[ "$code" == "204" || "$code" == "200" ]]; then
-        log_success "Notification sent to Discord"
+        log_success "Notification sent to Discord (${channel})"
         return 0
     fi
-    log_error "Discord webhook returned $code"
+    log_error "Discord webhook (${channel}) returned $code"
     return 1
 }
 
@@ -575,11 +604,14 @@ command -v docker >/dev/null 2>&1 || { log_error "docker not found"; exit 1; }
 # an alert needs to go out.
 command -v python3 >/dev/null 2>&1 || { log_error "python3 not found (needed to build the Discord payload)"; exit 1; }
 
-# The webhook and the origin secret both live in the app's .env. Sourced in a
-# subshell-safe way: only the two keys we need, so a stray line in .env cannot
-# execute anything.
+# The webhooks and the origin secret all live in the app's .env. Read in a
+# subshell-safe way: only the keys we need, by exact name, so a stray line in
+# .env cannot execute anything.
 if [[ -f "${APP_DIR}/.env" ]]; then
     DISCORD_WEBHOOK_URL=$(grep -E '^DISCORD_WEBHOOK_URL=' "${APP_DIR}/.env" | head -1 | cut -d= -f2- || true)
+    # The anchored '=' keeps these two apart: '^DISCORD_WEBHOOK_URL=' cannot
+    # match a DISCORD_WEBHOOK_DEBUG_URL= line, nor the reverse.
+    DISCORD_WEBHOOK_DEBUG_URL=$(grep -E '^DISCORD_WEBHOOK_DEBUG_URL=' "${APP_DIR}/.env" | head -1 | cut -d= -f2- || true)
     ORIGIN_VERIFY_SECRET=$(grep -E '^ORIGIN_VERIFY_SECRET=' "${APP_DIR}/.env" | head -1 | cut -d= -f2- || true)
 else
     log_warning "${APP_DIR}/.env not found"
@@ -608,24 +640,27 @@ NOW=$(date +%s)
 
 if [[ "$DRY_RUN" == "true" ]]; then
     log_info "Dry run — nothing sent"
-elif [[ "$FORCE" == "true" ]]; then
-    send_discord "$REPORT"
-    save_state "$SIGNATURE" "$NOW"
 elif [[ -n "$SIGNATURE" ]]; then
-    # Something is wrong: notify on a change, or once the quiet period lapses.
-    if [[ "$SIGNATURE" != "$PREV_SIGNATURE" ]] || (( NOW - PREV_NOTIFIED >= RENOTIFY_HOURS * 3600 )); then
-        send_discord "$REPORT"
+    # Something is wrong: notify on a change, once the quiet period lapses, or
+    # when --force overrides the suppression.
+    if [[ "$FORCE" == "true" ]] \
+        || [[ "$SIGNATURE" != "$PREV_SIGNATURE" ]] \
+        || (( NOW - PREV_NOTIFIED >= RENOTIFY_HOURS * 3600 )); then
+        send_discord "$REPORT" alert
         save_state "$SIGNATURE" "$NOW"
     else
         log_info "Same findings as the last notification — staying quiet until ${RENOTIFY_HOURS}h have passed"
         save_state "$SIGNATURE" "$PREV_NOTIFIED"
     fi
 elif [[ -n "$PREV_SIGNATURE" ]]; then
-    # Was failing, now clean: say so, so silence is never ambiguous.
-    send_discord "$REPORT"
+    # Was failing, now clean. This goes to the alert channel rather than debug
+    # so the all-clear lands where the alarm did; whoever saw the problem
+    # should not have to look elsewhere to learn it is over.
+    send_discord "$REPORT" alert
     save_state "" "$NOW"
 else
     log_success "All checks passed"
+    send_discord "$REPORT" debug
     save_state "" "$PREV_NOTIFIED"
 fi
 

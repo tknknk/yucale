@@ -96,6 +96,13 @@ variable "discord_webhook_url" {
   sensitive   = true
 }
 
+variable "discord_webhook_debug_url" {
+  description = "Discord webhook URL for the health check's clean-run reports (aws/scripts/health-check.sh). Findings go to discord_webhook_url; an hourly 'all checks passed' goes here, which also proves the check itself is still running. Leave empty to keep clean runs silent."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "cors_allowed_origins" {
   description = "Backend CORS allowed origins (the public CloudFront URL, e.g. https://xxxxx.cloudfront.net). Leave empty on the very first apply (the CloudFront domain is not known yet), then set it and apply again so instance recreations bootstrap with the correct origin."
   type        = string

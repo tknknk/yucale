@@ -56,6 +56,12 @@ allowed_ssh_cidrs = []
 # Discord webhook URL for notifications (optional)
 discord_webhook_url = ""
 
+# Discord webhook for the hourly health check's clean-run reports (optional).
+# Findings go to discord_webhook_url above; "all checks passed" goes here, so
+# the alert channel stays quiet and the hourly stream here also confirms the
+# check itself is alive. Empty = clean runs send nothing.
+discord_webhook_debug_url = ""
+
 # S3 bucket name for ICS files (optional - auto-generated if empty)
 # Must be globally unique if specified
 ics_bucket_name = ""
