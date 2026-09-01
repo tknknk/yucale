@@ -141,16 +141,16 @@ cd /opt/yucale
 # ICS feed and Discord notifications point at http://localhost:3000:
 #   FRONTEND_URL=https://xxxxx.cloudfront.net
 # nginx also needs nginx.prod.conf.template present next to docker-compose.yml:
-#   sudo curl -o nginx.prod.conf.template https://raw.githubusercontent.com/tknknk/yucale/master/nginx.prod.conf.template
+#   sudo curl -fsSL -o nginx.prod.conf.template https://raw.githubusercontent.com/tknknk/yucale/master/nginx.prod.conf.template
 # Set ORIGIN_VERIFY_SECRET to the same value as the origin_verify_secret
 # Terraform variable (see "Origin verification" below):
 #   ORIGIN_VERIFY_SECRET=<the value from terraform.tfvars>
 
 # Pull images from ghcr.io (public, no auth required)
-docker-compose -f docker-compose.prod.yml pull
+sudo docker-compose pull
 
 # Start the application
-docker-compose -f docker-compose.prod.yml up -d
+sudo docker-compose up -d
 ```
 
 ## Origin verification (X-Origin-Verify)
@@ -184,15 +184,14 @@ returns 403 for every visitor until the apply finishes.
 `user_data` only runs when an instance is **created**, and `user_data_replace_on_change`
 is not set, so `terraform apply` will not re-bootstrap the existing box. Recreating it is
 not a workaround either: the root volume has `delete_on_termination = true`, so the
-Postgres data goes with it. Refresh the files in place instead:
+Postgres data goes with it. Refresh the files in place with
+[`refresh-config.sh`](#refreshing-on-instance-config) instead:
 
 ```bash
 cd /opt/yucale
-sudo curl -fL -o docker-compose.yml https://raw.githubusercontent.com/tknknk/yucale/master/docker-compose.prod.yml
-sudo curl -fL -o nginx.prod.conf.template https://raw.githubusercontent.com/tknknk/yucale/master/nginx.prod.conf.template
 sudo sh -c 'echo "ORIGIN_VERIFY_SECRET=<the value from terraform.tfvars>" >> .env'
-sudo rm -f nginx.prod.conf   # superseded by the template
-sudo systemctl restart yucale
+curl -fsSL -o /tmp/refresh-config.sh https://raw.githubusercontent.com/tknknk/yucale/master/aws/scripts/refresh-config.sh
+sudo bash /tmp/refresh-config.sh
 ```
 
 Verify from your machine — the CloudFront URL works, a direct hit on the origin does not:
@@ -275,7 +274,7 @@ ssh -i yucale-key.pem ec2-user@<elastic-ip>
 ```bash
 # On EC2 instance
 cd /opt/yucale
-docker-compose -f docker-compose.prod.yml logs -f
+sudo docker-compose logs -f
 
 # CloudWatch Logs
 aws logs tail /ec2/yucale-dev --follow
@@ -287,9 +286,43 @@ GitHub に push すると GitHub Actions が新しいイメージをビルドし
 
 ```bash
 cd /opt/yucale
-docker-compose -f docker-compose.prod.yml pull
-docker-compose -f docker-compose.prod.yml up -d
+sudo docker-compose pull
+sudo docker-compose up -d
 ```
+
+> `-f docker-compose.prod.yml` は付けないこと。`user_data` はリポジトリの
+> `docker-compose.prod.yml` を **`/opt/yucale/docker-compose.yml` という名前で**
+> 配置するため、EC2 上にその名前のファイルは存在しません。
+
+### Refreshing on-instance config
+
+イメージではなく `docker-compose.prod.yml` や `nginx.prod.conf.template` を変更した場合は、
+イメージの pull だけでは反映されません。`user_data` はこれらをインスタンス**作成時にしか**
+取得しないためです。
+
+```bash
+curl -fsSL -o /tmp/refresh-config.sh https://raw.githubusercontent.com/tknknk/yucale/master/aws/scripts/refresh-config.sh
+sudo bash /tmp/refresh-config.sh
+```
+
+| オプション | 用途 |
+|---|---|
+| `--no-pull` | 設定ファイルだけ更新し、イメージは現状維持 |
+| `--no-restart` | 取得と検証のみ。コンテナには触れない |
+| `-r <ref>` | 特定のブランチ/タグから取得（切り戻しに使う） |
+
+**2つのファイルは必ずセットで取得すること。** 片方だけ更新すると壊れます。実際に
+2026-09-01、`docker-compose.yml` だけを更新してサイトが停止しました。compose 側は
+`./nginx.prod.conf.template`（`nginx.prod.conf` からのリネーム）をマウントする設定に
+変わっていたのに、そのパスがインスタンス上に存在せず、Docker が bind mount 用に**空の
+ディレクトリ**を作成。nginx のエントリポイントの `find -type f -name '*.template'` は
+ディレクトリにマッチしないためテンプレートが処理されず、nginx が**同梱の素の設定**で
+起動して「Welcome to nginx!」を表示していました。
+
+このスクリプトは両方を同時に取得し、`curl -f` で HTTP エラーがファイルに書き込まれるのを
+防ぎ、`docker-compose config -q` で検証してから設置し、起動後に nginx が生成後の設定で
+動いているかまで確認します。ダウンロードや検証に失敗した場合は `/opt/yucale` を一切
+変更しません。差し替え前のファイルは `/opt/yucale/.config-backup/` に退避されます。
 
 ## Destroy Infrastructure
 
@@ -355,11 +388,11 @@ sudo docker inspect --format '{{json .State.Health}}' yucale_backend
 sudo docker inspect --format '{{json .State.Health}}' yucale_frontend
 ```
 
-最新の `docker-compose.prod.yml` を取得して再起動:
+最新の設定を取得して再起動（`docker-compose.yml` だけを単体で `curl` しないこと。
+理由は [Refreshing on-instance config](#refreshing-on-instance-config) 参照）:
 ```bash
-cd /opt/yucale
-sudo curl -o docker-compose.yml https://raw.githubusercontent.com/tknknk/yucale/master/docker-compose.prod.yml
-sudo docker-compose up -d
+curl -fsSL -o /tmp/refresh-config.sh https://raw.githubusercontent.com/tknknk/yucale/master/aws/scripts/refresh-config.sh
+sudo bash /tmp/refresh-config.sh
 ```
 
 ### ページは開くがログイン/登録できない（API が 403 / 401）
@@ -382,9 +415,58 @@ sudo docker-compose up -d
   ```
 - **`/api/...` がすべて Next.js に吸われる / 404**: nginx が経路にいない。
   nginx が起動しているか（`docker ps` に `yucale_nginx`）、ホスト 3000 を
-  nginx が公開しているか確認。`nginx.prod.conf` が `/opt/yucale` に必要。
+  nginx が公開しているか確認。`nginx.prod.conf.template` が `/opt/yucale` に必要
+  （`nginx.prod.conf` から改名済み。下の「Welcome to nginx!」も参照）。
 - **GET は通るが POST だけ失敗**: 同一オリジンの GET には `Origin` ヘッダが付かず
   CORS 検査を素通りするため。POST 失敗は上記の CORS 設定を確認。
+
+### アプリではなく「Welcome to nginx!」が表示される
+
+nginx が**イメージ同梱の素の設定**で起動している状態です。コンテナは正常に動いて
+見えるので、障害として気付きにくいのが厄介な点です。
+
+原因はほぼ確実に、`/opt/yucale/nginx.prod.conf.template` が**ファイルではなく空の
+ディレクトリ**になっていることです。compose はこのパスを bind mount しますが、
+存在しないパスを指定すると Docker が空ディレクトリを作成します。nginx の
+エントリポイントは `find -type f -name '*.template'` でテンプレートを探すため
+ディレクトリは無視され、envsubst が走らないまま素の `nginx.conf` で起動します。
+
+`docker-compose.yml` だけを更新して `nginx.prod.conf.template` を取得し忘れると
+この状態になります（`nginx.prod.conf` からの改名に追随できていないケース）。
+
+確認:
+```bash
+ls -ld /opt/yucale/nginx.prod.conf.template          # d で始まればディレクトリ = 異常
+sudo docker-compose logs nginx | grep envsubst        # "Running envsubst on ..." が無ければ未処理
+sudo docker exec yucale_nginx sh -c 'wc -l < /etc/nginx/nginx.conf'   # 32行=素の設定 / 90行前後=正常
+```
+
+修正:
+```bash
+curl -fsSL -o /tmp/refresh-config.sh https://raw.githubusercontent.com/tknknk/yucale/master/aws/scripts/refresh-config.sh
+sudo bash /tmp/refresh-config.sh
+```
+
+### 全ページが 403 になる
+
+nginx のオリジン検証と CloudFront の設定がずれています。CloudFront が
+`X-Origin-Verify` を送っているのに、`.env` の `ORIGIN_VERIFY_SECRET` が空か
+異なる値になっていると、`map` にマッチせず全リクエストが 403 になります。
+
+```bash
+# CloudFront が送っている値
+aws cloudfront get-distribution-config --id <DISTRIBUTION_ID> \
+  --query 'DistributionConfig.Origins.Items[].CustomHeaders' --output json
+
+# 同じ値を .env に設定して再起動
+sudo sh -c 'echo "ORIGIN_VERIFY_SECRET=<CloudFrontと同じ値>" >> /opt/yucale/.env'
+cd /opt/yucale && sudo docker-compose up -d nginx
+```
+
+切り分けにはヘッダーを付けてオリジンを直接叩きます:
+```bash
+curl -i -H "X-Origin-Verify: <secret>" http://<EIP>:3000/api/health
+```
 
 ### terraform output が空
 
