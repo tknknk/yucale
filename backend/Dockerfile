@@ -46,6 +46,10 @@ ENV TZ=Asia/Tokyo
 #   MaxDirectMemorySize
 #                 Defaults to the value of -Xmx when unset, silently allowing
 #                 a second heap-sized region. Tomcat/NIO here needs very little.
+#   -Xss          Deliberately left at the default. Halving it only mattered
+#                 while Tomcat could open 200 threads; server.tomcat.threads.max
+#                 is now 20, so the worst case is 20MB of stack either way and
+#                 a non-default stack size is not worth the risk.
 #   ExitOnOutOfMemoryError
 #                 The one flag that would have turned the incident into a
 #                 restart: the JVM survived its OOM in a degraded state for
@@ -64,7 +68,6 @@ ENV TZ=Asia/Tokyo
 #                 heap; check the class-loader/class counts, not object sizes.
 ENV JAVA_OPTS="-Xms192m -Xmx192m \
 -XX:+UseSerialGC \
--Xss512k \
 -XX:MaxMetaspaceSize=128m \
 -XX:MaxDirectMemorySize=32m \
 -XX:+ExitOnOutOfMemoryError \

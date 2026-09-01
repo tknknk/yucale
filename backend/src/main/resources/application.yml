@@ -10,6 +10,12 @@ spring:
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # Default is 10. With at most 20 request threads and a measured peak of 3
+      # concurrent requests, 5 is ample. Each pooled connection is also a
+      # postgres backend process on the other side, and the db container runs
+      # under a 128M limit, so this bounds memory on both ends.
+      maximum-pool-size: 5
 
   jpa:
     hibernate:
@@ -30,6 +36,22 @@ spring:
 
 server:
   port: 8080
+  tomcat:
+    # Sized for the actual load, not Tomcat's defaults. Replaying the
+    # 2026-09-01 log (106 requests, 7 client IPs, 13 hours) puts peak
+    # concurrency at 3 in-flight requests, and that figure is inflated by the
+    # degraded period where responses took 1-2.5s.
+    #
+    # The defaults (200 threads, 8192 connections) are ceilings the JVM must be
+    # able to honour inside a 448M container: 200 threads is up to 200MB of
+    # native stack, and each accepted connection carries Tomcat read/write
+    # buffers. Neither is preallocated, so this does not shrink steady-state
+    # usage -- it bounds the worst case, so a traffic spike degrades by queueing
+    # instead of by pushing the JVM into the memory wall it hit on 2026-09-01.
+    threads:
+      max: 20
+      min-spare: 5
+    max-connections: 200
   servlet:
     session:
       cookie:
