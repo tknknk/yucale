@@ -22,27 +22,36 @@ COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8080
 ENV TZ=Asia/Tokyo
 
-# Sizing after the 2026-09-01 OutOfMemoryError. Measured on this image with
-# `jcmd GC.heap_info` / `VM.metaspace` shortly after startup under light load:
+# Sizing after the 2026-09-01 OutOfMemoryError. The incident could not print
+# its own stack trace, so the exhausted region was originally inferred. It is
+# now confirmed: a SIGQUIT dump from the production JVM, warm and under real
+# traffic, reports
 #
-#     live heap set after a Full GC   32 MB   (old ceiling 128m -> 25% used)
-#     metaspace committed             88 MB   (old ceiling  96m -> 91% used)
+#     live heap set after a Full GC   30.7 MB
+#     metaspace committed             97.4 MB   (used 96.2 MB)
 #
-# So the heap was NOT chronically full; metaspace was the region sitting
-# against its ceiling, and it grows over time as CGLIB/lambda/Hibernate
-# classes accumulate. MaxMetaspaceSize is therefore the important change here
-# -- exhausting it triggers back-to-back Full GCs trying to unload classes,
-# which matches the incident's symptoms exactly (latency 10ms -> 1000-2500ms,
-# 40 minutes of CPU burned in 13 hours of uptime, process never exiting).
-# The heap bump is secondary: margin for transient spikes, not a fix for a
-# known shortage.
+# against the ceilings in force before this file was touched (heap 128m,
+# metaspace 96m = 98304 KB). Metaspace *used* came to 98499 KB — 195 KB past
+# the old ceiling. The app genuinely needs more metaspace than it was allowed,
+# so the JVM would sit in back-to-back Full GCs trying to unload classes and
+# eventually throw OutOfMemoryError: Metaspace. That is the incident, exactly:
+# latency 10ms -> 1000-2500ms, 40 minutes of CPU burned in 13 hours of uptime,
+# process never exiting.
+#
+# The heap was never the problem — 30.7 MB live in a 128m heap is 24%. So the
+# budget is spent where the shortage actually is: the heap goes back to 128m
+# and metaspace gets the 64 MB. Same total ceiling, ~64 MB less committed
+# memory, and metaspace headroom widens from 30 MB to 92 MB.
 #
 #   -Xms == -Xmx  Commit the whole heap up front, so the footprint is flat and
 #                 predictable under the cgroup limit instead of drifting into
 #                 it. If it does not fit, the container fails at startup
 #                 rather than at 03:00 under load.
-#   MaxMetaspace  96m -> 128m, i.e. ~45% headroom over the measured 88 MB.
+#   MaxMetaspace  96m -> 192m, i.e. ~95% headroom over the measured 97.4 MB.
 #                 A ceiling, not a reservation -- unused space is not committed.
+#                 Metaspace grew 85 -> 97 MB between a freshly started JVM and
+#                 a warm production one, so the headroom needs to absorb a
+#                 second step of that size, not just a rounding margin.
 #   MaxDirectMemorySize
 #                 Defaults to the value of -Xmx when unset, silently allowing
 #                 a second heap-sized region. Tomcat/NIO here needs very little.
@@ -66,9 +75,9 @@ ENV TZ=Asia/Tokyo
 #                 before redeploying.
 #                 NOTE: a Metaspace OOM produces a dump that shows a healthy
 #                 heap; check the class-loader/class counts, not object sizes.
-ENV JAVA_OPTS="-Xms192m -Xmx192m \
+ENV JAVA_OPTS="-Xms128m -Xmx128m \
 -XX:+UseSerialGC \
--XX:MaxMetaspaceSize=128m \
+-XX:MaxMetaspaceSize=192m \
 -XX:MaxDirectMemorySize=32m \
 -XX:+ExitOnOutOfMemoryError \
 -XX:+HeapDumpOnOutOfMemoryError \
