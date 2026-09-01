@@ -337,6 +337,56 @@ terraform destroy
 - SSH is disabled by default (use SSM Session Manager)
 - Database runs locally in Docker (no external access)
 
+## Monitoring
+
+`aws/scripts/health-check.sh` はインスタンス上で1時間に1回動き、**要確認の事象があるときだけ**
+Discord に通知します。
+
+```bash
+curl -fsSL -o /opt/yucale/health-check.sh https://raw.githubusercontent.com/tknknk/yucale/master/aws/scripts/health-check.sh
+sudo chmod +x /opt/yucale/health-check.sh
+
+sudo /opt/yucale/health-check.sh --dry-run   # まず結果を確認（通知は送らない）
+sudo /opt/yucale/health-check.sh --install-cron
+```
+
+Webhook は `/opt/yucale/.env` の `DISCORD_WEBHOOK_URL` を読むので、追加設定は不要です
+（アプリの通知と同じ Webhook を使います）。
+
+### なぜ CloudWatch ではないのか
+
+`user_data.sh` の CloudWatch Agent は `mem_used_percent` を `Yucale` ネームスペースへ
+publish する設定ですが、インスタンスロール（`ec2.tf` の `aws_iam_role_policy.ec2_cloudwatch`）
+は `logs:*` のみで **`cloudwatch:PutMetricData` を含みません**。メトリクスは届いておらず、
+アラームを載せる土台がありません。
+
+加えて、このプロジェクトで実際に起きた障害はいずれもホストのメモリでは見えないものでした
+— JVM 内部の Metaspace 枯渇、コンテナの自己再起動、nginx が素の設定で起動していた件。
+いずれもホスト上からは観測できます。
+
+| チェック項目 | 何を捕まえるか |
+|---|---|
+| コンテナの起動状態と healthcheck | 落ちた／unhealthy になった |
+| 前回実行からの再起動回数 | **OOM で自動再起動した**（`ExitOnOutOfMemoryError` 導入後、これ以外に痕跡が残らない） |
+| コンテナ別メモリ / limit | 上限に近づいている（既定: 警告 85%、危険 95%） |
+| ホストのメモリ・ディスク | 逼迫 |
+| nginx 経由の `/api/health` | 経路のどこかが壊れた |
+| レスポンスに `Welcome to nginx!` | nginx が素の設定で起動した |
+| backend 内の `*.hprof`、直近ログの `OutOfMemoryError` | JVM が OOM を起こした |
+
+### 通知の頻度
+
+同じ内容の通知が毎時飛ばないよう、状態を `/var/lib/yucale/health-state` に保存し、
+**内容が変わったとき**か **`RENOTIFY_HOURS`（既定6時間）経過後**にのみ送信します。
+問題が解消したときは復旧通知を1度送るので、沈黙の意味が曖昧になりません。
+
+閾値は環境変数で変更できます（`MEM_WARN_PCT`、`DISK_CRIT_PCT` など。`--help` 参照）。
+
+> **限界:** 監視対象のホスト自身で動くため、デッドマンスイッチにはなりません。
+> インスタンスごと停止・ハングした場合、通知は飛びません。この穴は CloudWatch の
+> `StatusCheckFailed` アラームで塞げます（IAM 変更不要・ほぼ無料）。本スクリプトと
+> 競合せず補完する関係なので、追加を推奨します。
+
 ## Troubleshooting
 
 ### SSM接続エラー: "TargetNotConnected"
