@@ -75,6 +75,13 @@
             <artifactId>bucket4j-core</artifactId>
             <version>8.10.1</version>
         </dependency>
+        <!-- Holds the per-client rate-limit buckets. bucket4j-core has no store
+             of its own, and a plain map of them never stops growing; see
+             RateLimitFilter. Version is managed by spring-boot-dependencies. -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
 
         <!-- Testing -->
         <dependency>

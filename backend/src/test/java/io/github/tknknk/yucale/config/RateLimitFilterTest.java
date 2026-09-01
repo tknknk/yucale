@@ -12,6 +12,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -358,6 +360,95 @@ class RateLimitFilterTest {
 
             // Assert
             assertThat(overLimitResponse.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        }
+    }
+
+    @Nested
+    @DisplayName("バケット保持数の上限と失効")
+    class BucketRetentionTests {
+
+        /**
+         * A filter whose expiry runs off a clock the test advances by hand, so
+         * the 1 hour retention can be exercised without sleeping.
+         */
+        private RateLimitFilter filterWithClock(AtomicLong nanos) {
+            return new RateLimitFilter(new ClientIpResolver(1), nanos::get);
+        }
+
+        private void loginOnce(RateLimitFilter filter, String ip) throws ServletException, IOException {
+            MockHttpServletRequest req = new MockHttpServletRequest();
+            req.setMethod("POST");
+            req.setRequestURI("/api/auth/login");
+            req.setRemoteAddr(ip);
+            filter.doFilterInternal(req, new MockHttpServletResponse(), filterChain);
+        }
+
+        @Test
+        @DisplayName("クライアント数が上限を超えてもバケット数は上限内に収まる")
+        void manyDistinctClients_bucketCountStaysBounded() throws ServletException, IOException {
+            // Arrange: previously a ConcurrentHashMap that never evicted, so this
+            // loop grew the map by one entry per address, forever.
+            AtomicLong nanos = new AtomicLong();
+            RateLimitFilter filter = filterWithClock(nanos);
+            int clients = RateLimitFilter.MAX_TRACKED_CLIENTS * 2;
+
+            // Act: one request each from twice as many addresses as the cap
+            for (int i = 0; i < clients; i++) {
+                loginOnce(filter, "2001:db8::" + Integer.toHexString(i));
+            }
+
+            // Assert
+            assertThat(filter.trackedClientCount())
+                    .isLessThanOrEqualTo(RateLimitFilter.MAX_TRACKED_CLIENTS);
+        }
+
+        @Test
+        @DisplayName("一定時間アクセスのないバケットは破棄される")
+        void idleClient_bucketIsEvicted() throws ServletException, IOException {
+            // Arrange
+            AtomicLong nanos = new AtomicLong();
+            RateLimitFilter filter = filterWithClock(nanos);
+            loginOnce(filter, "192.168.2.1");
+            assertThat(filter.trackedClientCount()).isEqualTo(1);
+
+            // Act: idle for longer than the retention window
+            nanos.addAndGet(RateLimitFilter.IDLE_RETENTION.plusMinutes(1).toNanos());
+
+            // Assert
+            assertThat(filter.trackedClientCount()).isZero();
+        }
+
+        @Test
+        @DisplayName("失効までの間はレート制限が維持される")
+        void activeClient_limitSurvivesUntilRetentionElapses() throws ServletException, IOException {
+            // Arrange: exhaust the login quota
+            AtomicLong nanos = new AtomicLong();
+            RateLimitFilter filter = filterWithClock(nanos);
+            for (int i = 0; i < 5; i++) {
+                loginOnce(filter, "192.168.2.2");
+            }
+
+            // Act: wait less than the retention window, then retry
+            nanos.addAndGet(Duration.ofMinutes(5).toNanos());
+            MockHttpServletRequest req = new MockHttpServletRequest();
+            req.setMethod("POST");
+            req.setRequestURI("/api/auth/login");
+            req.setRemoteAddr("192.168.2.2");
+            MockHttpServletResponse blocked = new MockHttpServletResponse();
+            filter.doFilterInternal(req, blocked, filterChain);
+
+            // Assert: eviction must not hand out a fresh quota early
+            assertThat(blocked.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS.value());
+        }
+
+        @Test
+        @DisplayName("保持期間は最長のリフィル間隔以上である")
+        void retentionCoversLongestRefillWindow() {
+            // The register (3/hour) and general API (1000/hour) buckets refill on
+            // a 1 hour interval. Evicting sooner than that would hand back quota
+            // early; this pins the invariant that makes eviction a no-op.
+            assertThat(RateLimitFilter.IDLE_RETENTION)
+                    .isGreaterThanOrEqualTo(Duration.ofHours(1));
         }
     }
 

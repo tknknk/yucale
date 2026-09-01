@@ -1,5 +1,8 @@
 package io.github.tknknk.yucale.config;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Ticker;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
@@ -8,25 +11,77 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @Slf4j
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    /**
+     * Hard cap on tracked clients. A plain map keyed by client IP grows for as
+     * long as the process lives, which on a 448M container is a slow leak and,
+     * for anyone able to source addresses from an IPv6 /64, a cheap way to
+     * exhaust the heap deliberately. At roughly 300 bytes per entry this ceiling
+     * costs a few MB at worst.
+     *
+     * <p>Evicting under pressure resets that client's counter, so a flood could
+     * in principle push out a legitimate client's bucket. Caffeine's W-TinyLFU
+     * favours frequently used entries, which is the opposite of what a
+     * one-request-per-address flood produces, and a reset limit is a far better
+     * failure than an OutOfMemoryError.
+     */
+    static final int MAX_TRACKED_CLIENTS = 10_000;
+
+    /**
+     * Idle time after which a client's buckets are dropped. Must be at least the
+     * longest refill window used below (1 hour), and that is exactly why it is
+     * safe: {@code Refill.intervally} hands back the whole quota once the window
+     * passes, so a bucket untouched for that long is already indistinguishable
+     * from a fresh one. Dropping it changes no decision — it only stops the map
+     * from remembering every address that ever connected.
+     *
+     * <p>Being rate-limited still counts as access, so a client sitting on an
+     * exhausted bucket keeps it alive and cannot win an early reset by waiting.
+     */
+    static final Duration IDLE_RETENTION = Duration.ofHours(1);
+
+    private final Cache<String, Bucket> buckets;
 
     private final ClientIpResolver clientIpResolver;
 
+    // @Autowired is required, not decorative: a class with a single constructor
+    // gets it used implicitly, but adding the test constructor below makes the
+    // choice ambiguous and Spring falls back to looking for a no-arg one.
+    @Autowired
     public RateLimitFilter(ClientIpResolver clientIpResolver) {
+        this(clientIpResolver, Ticker.systemTicker());
+    }
+
+    // Visible for tests, which drive expiry off a fake clock rather than waiting
+    // an hour.
+    RateLimitFilter(ClientIpResolver clientIpResolver, Ticker ticker) {
         this.clientIpResolver = clientIpResolver;
+        this.buckets = Caffeine.newBuilder()
+                .maximumSize(MAX_TRACKED_CLIENTS)
+                .expireAfterAccess(IDLE_RETENTION)
+                .ticker(ticker)
+                .build();
+    }
+
+    /**
+     * Number of clients currently tracked. Visible for tests asserting the map
+     * stays bounded; Caffeine evicts asynchronously, so pending work is flushed
+     * first to make the count deterministic.
+     */
+    long trackedClientCount() {
+        buckets.cleanUp();
+        return buckets.estimatedSize();
     }
 
     @Override
@@ -45,7 +100,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         String bucketKey = clientIp + ":" + getBucketCategory(path);
-        Bucket bucket = buckets.computeIfAbsent(bucketKey, k -> createBucket(path));
+        Bucket bucket = buckets.get(bucketKey, k -> createBucket(path));
 
         if (bucket.tryConsume(1)) {
             chain.doFilter(request, response);
