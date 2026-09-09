@@ -103,6 +103,10 @@ app:
     default-response-options: ${DEFAULT_RESPONSE_OPTIONS:出席,欠席,未定}
     default-attending-options: ${DEFAULT_ATTENDING_OPTIONS:出席}
     default-checkbox-label: ${DEFAULT_CHECKBOX_LABEL:}
+    # 出席系オプションごとの名前接尾辞（"オプション:接尾辞" のカンマ区切り）。
+    # 例: 遅刻の回答者は schedules.attendees に "田中(遅)" と記録される。
+    # 記載のないオプション（通常は出席）は名前のみ。
+    attendee-suffixes: "${ATTENDEE_SUFFIXES:遅刻:遅,早退:早}"
 
 ics:
   output:

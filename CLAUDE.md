@@ -105,6 +105,7 @@ frontend/src/
 | `DEFAULT_RESPONSE_OPTIONS` | 出欠調査の回答選択肢（デフォルト: 出席,欠席,未定） |
 | `DEFAULT_ATTENDING_OPTIONS` | 出席扱いとする回答選択肢（デフォルト: 出席） |
 | `DEFAULT_CHECKBOX_LABEL` | 出欠調査作成時のチェックボックスのデフォルトラベル（デフォルト: 空） |
+| `ATTENDEE_SUFFIXES` | 出席系オプションごとに`schedules.attendees`の名前へ付ける接尾辞（`オプション:接尾辞`のカンマ区切り、デフォルト: `遅刻:遅,早退:早`）。例: 遅刻の回答者は`田中(遅)`と記載される。記載のないオプション（通常は出席）は名前のみ |
 | `LOGIN_MAX_FAILED_ATTEMPTS` | ログイン施錠までの連続失敗回数（デフォルト: 5） |
 | `LOGIN_LOCK_DURATION_MINUTES` | ログイン施錠時間・分（デフォルト: 15） |
 | `APP_COOKIE_SECURE` | セッション/CSRF CookieにSecure属性を付与（デフォルト: false）。HTTPS配信の本番では`true`必須 |

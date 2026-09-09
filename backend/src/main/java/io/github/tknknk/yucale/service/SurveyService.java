@@ -47,6 +47,12 @@ public class SurveyService {
     @Value("${app.survey.default-checkbox-label:}")
     private String defaultCheckboxLabel;
 
+    // Suffix appended to an attendee's name on the schedule, per response option:
+    // "遅刻:遅,早退:早" renders a late attendee as "田中(遅)". Options with no entry
+    // here (typically 出席) keep the bare name.
+    @Value("${app.survey.attendee-suffixes:遅刻:遅,早退:早}")
+    private String attendeeSuffixes;
+
     /**
      * Get default survey settings
      */
@@ -423,6 +429,9 @@ public class SurveyService {
         // Get belonging list for ordering
         List<String> belongingOrder = parseCommaSeparated(survey.getBelongingList());
 
+        // Per-option name suffixes (遅刻 -> 田中(遅) など)
+        Map<String, String> suffixByOption = parseAttendeeSuffixes();
+
         // Get all survey details with responses
         List<SurveyDetail> details = surveyDetailRepository.findBySurveyIdWithScheduleAndResponses(survey.getId());
 
@@ -442,8 +451,12 @@ public class SurveyService {
             for (SurveyResponse response : detail.getResponses()) {
                 if (response.getResponseOption() != null && attendingOptions.contains(response.getResponseOption())) {
                     String belonging = response.getBelonging() != null ? response.getBelonging() : "";
+                    String suffix = suffixByOption.get(response.getResponseOption());
+                    String name = suffix == null
+                            ? response.getUserName()
+                            : response.getUserName() + "(" + suffix + ")";
                     attendeesByBelonging.computeIfAbsent(belonging, k -> new ArrayList<>())
-                            .add(response.getUserName());
+                            .add(name);
                 }
             }
 
@@ -515,6 +528,30 @@ public class SurveyService {
             log.error("Failed to serialize response options to JSON", e);
             return null;
         }
+    }
+
+    /**
+     * Parse the configured "option:suffix" pairs (comma-separated) into a map.
+     * Entries without a suffix, or with an unexpected shape, are skipped so a
+     * misconfiguration falls back to plain names instead of breaking the update.
+     */
+    private Map<String, String> parseAttendeeSuffixes() {
+        Map<String, String> suffixes = new HashMap<>();
+        if (attendeeSuffixes == null || attendeeSuffixes.isBlank()) {
+            return suffixes;
+        }
+        for (String entry : attendeeSuffixes.split(",")) {
+            int sep = entry.indexOf(':');
+            if (sep < 0) {
+                continue;
+            }
+            String option = entry.substring(0, sep).trim();
+            String suffix = entry.substring(sep + 1).trim();
+            if (!option.isEmpty() && !suffix.isEmpty()) {
+                suffixes.put(option, suffix);
+            }
+        }
+        return suffixes;
     }
 
     private List<ResponseOptionDto> parseResponseOptions(String json) {

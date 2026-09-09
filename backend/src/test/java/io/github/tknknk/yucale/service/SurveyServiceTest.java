@@ -1007,4 +1007,73 @@ class SurveyServiceTest {
                     .hasMessageContaining("アンケートが見つかりません");
         }
     }
+
+    @Nested
+    @DisplayName("スケジュールの出席者名")
+    class ScheduleAttendeesTests {
+
+        @BeforeEach
+        void setUpAttendingOptions() {
+            testSurvey.setResponseOptions("["
+                    + "{\"option\":\"出席\",\"isAttending\":true},"
+                    + "{\"option\":\"遅刻\",\"isAttending\":true},"
+                    + "{\"option\":\"早退\",\"isAttending\":true},"
+                    + "{\"option\":\"欠席\",\"isAttending\":false}]");
+        }
+
+        /**
+         * 所属ごとに1人だけ回答させる。detail.responsesはSetなので、
+         * 同一所属に複数人いると並び順が不定になるため。
+         */
+        private void addResponse(String userName, String belonging, String responseOption) {
+            testDetail.getResponses().add(SurveyResponse.builder()
+                    .surveyDetail(testDetail)
+                    .userName(userName)
+                    .belonging(belonging)
+                    .responseOption(responseOption)
+                    .build());
+        }
+
+        private void triggerAttendeesUpdate() {
+            when(surveyRepository.findByUrlId("surv001")).thenReturn(Optional.of(testSurvey));
+            when(surveyResponseRepository.findByUrlIdAndUserName("surv001", "removed"))
+                    .thenReturn(List.of());
+            when(surveyDetailRepository.findBySurveyIdWithScheduleAndResponses(1L))
+                    .thenReturn(List.of(testDetail));
+
+            surveyService.deleteUserResponses("surv001", "removed");
+        }
+
+        @Test
+        @DisplayName("遅刻・早退は名前に接尾辞を付けて記録される")
+        void shouldAppendSuffixForLateAndEarlyLeave() {
+            // 準備
+            ReflectionTestUtils.setField(surveyService, "attendeeSuffixes", "遅刻:遅,早退:早");
+            addResponse("田中", "S", "出席");
+            addResponse("鈴木", "A", "遅刻");
+            addResponse("佐藤", "T", "早退");
+            addResponse("高橋", "B", "欠席");
+
+            // 実行
+            triggerAttendeesUpdate();
+
+            // 検証
+            verify(scheduleRepository).updateAttendees(1L, "S: 田中\nA: 鈴木(遅)\nT: 佐藤(早)");
+        }
+
+        @Test
+        @DisplayName("接尾辞が未設定の場合は名前のみ記録される")
+        void shouldKeepPlainNamesWhenNoSuffixConfigured() {
+            // 準備
+            ReflectionTestUtils.setField(surveyService, "attendeeSuffixes", "");
+            addResponse("田中", "S", "出席");
+            addResponse("鈴木", "A", "遅刻");
+
+            // 実行
+            triggerAttendeesUpdate();
+
+            // 検証
+            verify(scheduleRepository).updateAttendees(1L, "S: 田中\nA: 鈴木");
+        }
+    }
 }

@@ -253,6 +253,7 @@ docker-compose -f docker-compose.prod.yml up -d
 | `DEFAULT_RESPONSE_OPTIONS` | 出欠調査の回答選択肢 | 出席,欠席,未定 |
 | `DEFAULT_ATTENDING_OPTIONS` | 出席扱いとする回答選択肢 | 出席 |
 | `DEFAULT_CHECKBOX_LABEL` | 出欠調査のチェックボックスのデフォルトラベル | （空） |
+| `ATTENDEE_SUFFIXES` | 出席者名に付ける接尾辞（`オプション:接尾辞`のカンマ区切り）。遅刻なら`田中(遅)` | `遅刻:遅,早退:早` |
 | `LOGIN_MAX_FAILED_ATTEMPTS` | ログイン施錠までの連続失敗回数 | 5 |
 | `LOGIN_LOCK_DURATION_MINUTES` | ログイン施錠時間（分） | 15 |
 
