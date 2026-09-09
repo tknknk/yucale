@@ -7,6 +7,11 @@ import { format, parseISO, isValid } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { linkifyText } from '@/lib/linkify';
+import {
+  attendanceHalfLineClass,
+  attendanceLineClass,
+  getAttendanceMark,
+} from '@/lib/attendance';
 
 interface RecentScheduleCardProps {
   schedule: Schedule;
@@ -29,15 +34,13 @@ export default function RecentScheduleCard({
   const getEndDate = () => schedule.dtend || schedule.endTime;
   const getTitle = () => schedule.summary || schedule.title;
 
-  // Check if current user is in attendees
-  const isUserAttending = () => {
-    if (!user || !schedule.attendees) return false;
-    const attendeesLower = schedule.attendees.toLowerCase();
-    return (
-      attendeesLower.includes(user.username.toLowerCase()) ||
-      attendeesLower.includes(user.email.toLowerCase())
-    );
-  };
+  // 出席なら全高、早退は上半分、遅刻は下半分のラインをカード左端に出す
+  // （半分のラインはカードに重ねる枠で描く）
+  const attendanceMark = getAttendanceMark(schedule.attendees, user);
+  const halfLineClass = attendanceHalfLineClass(attendanceMark, {
+    isPast,
+    allDay: schedule.allDay,
+  });
 
   // Check if all-day event spans multiple days
   const isMultiDayAllDay = () => {
@@ -99,16 +102,9 @@ export default function RecentScheduleCard({
           : schedule.allDay
           ? 'bg-rose-50 border border-rose-200/50'
           : 'bg-primary-50 border border-primary-200/50'
-      } ${
-        isUserAttending()
-          ? isPast
-            ? 'border-l-4 border-l-gray-400'
-            : schedule.allDay
-            ? 'border-l-4 border-l-rose-500'
-            : 'border-l-4 border-l-blue-500'
-          : ''
-      }`}
+      } ${attendanceLineClass(attendanceMark, { isPast, allDay: schedule.allDay })}`}
     >
+      {halfLineClass && <span aria-hidden="true" className={halfLineClass} />}
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           {/* Title - links to the schedule detail page */}

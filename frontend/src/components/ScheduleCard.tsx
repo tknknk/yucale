@@ -8,6 +8,12 @@ import { format, parseISO, isValid } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { useAuth } from '@/hooks/useAuth';
 import { linkifyText } from '@/lib/linkify';
+import {
+  attendanceHalfLineClass,
+  attendanceLineClass,
+  attendanceRingClass,
+  getAttendanceMark,
+} from '@/lib/attendance';
 
 interface ScheduleCardProps {
   schedule: Schedule;
@@ -46,15 +52,16 @@ export default function ScheduleCard({
   // Check if user is VIEWER or above (can see details on expand)
   const canViewDetails = userRole && userRole !== 'NO_ROLE';
 
-  // Check if current user is in attendees
-  const isUserAttending = () => {
-    if (!user || !schedule.attendees) return false;
-    const attendeesLower = schedule.attendees.toLowerCase();
-    return (
-      attendeesLower.includes(user.username.toLowerCase()) ||
-      attendeesLower.includes(user.email.toLowerCase())
-    );
-  };
+  // 出席は全体、早退は上半分、遅刻は下半分だけを強調する。
+  // 閉じているときはカード左端のライン、開いているときはリングで示し、
+  // どちらも半分の強調はカードに重ねる枠（halfLineClass）が描く。
+  const attendanceMark = getAttendanceMark(schedule.attendees, user);
+  const isUserAttending = attendanceMark !== null;
+  const accentOptions = { isPast, allDay: schedule.allDay };
+  const halfLineClass = attendanceHalfLineClass(attendanceMark, {
+    ...accentOptions,
+    expanded: isExpanded,
+  });
 
   const formatShortDate = (dateString: string) => {
     try {
@@ -134,26 +141,16 @@ export default function ScheduleCard({
           : 'bg-primary-50 border border-primary-200/50'
       } ${
         isExpanded
-          ? isUserAttending()
-            ? isPast
-              ? 'ring-4 ring-gray-400 shadow-glow'
-              : schedule.allDay
-              ? 'ring-4 ring-rose-500 shadow-glow'
-              : 'ring-4 ring-blue-500 shadow-glow'
+          ? isUserAttending
+            ? `${attendanceRingClass(attendanceMark, accentOptions)} shadow-glow`
             : isPast
               ? 'ring-2 ring-gray-400 shadow-glow'
               : 'ring-2 ring-primary-400 shadow-glow'
           : 'hover:-translate-y-0.5'
-      } ${
-        !isExpanded && isUserAttending()
-          ? isPast
-            ? 'border-l-4 border-l-gray-400'
-            : schedule.allDay
-            ? 'border-l-4 border-l-rose-500'
-            : 'border-l-4 border-l-blue-500'
-          : ''
-      }`}
+      } ${isExpanded ? '' : attendanceLineClass(attendanceMark, accentOptions)}`}
     >
+      {halfLineClass && <span aria-hidden="true" className={halfLineClass} />}
+
       {/* Main Card Content - Clickable */}
       <div
         className="p-4 cursor-pointer"
