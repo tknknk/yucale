@@ -38,19 +38,63 @@ FRONTEND_URL="$${CORS_ALLOWED_ORIGINS%%,*}"
 # System Setup
 # -----------------------------------------------------------------------------
 
-# Swap: the t4g.micro has ~1GB RAM and no swap by default. Without it the
-# backend JVM + Postgres + agents push the box into memory-reclaim thrashing
-# (kswapd0 burning CPU), making everything slow. A 2GB swapfile gives the
-# kernel headroom. Low swappiness keeps it as a safety margin, not a default.
-if [ ! -f /swapfile ]; then
-  fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+# Swap: the instance has no swap by default. Without it the backend JVM +
+# Postgres + agents can push a small box into memory-reclaim thrashing (kswapd0
+# burning CPU), making everything slow. A 2GB swapfile gives the kernel
+# headroom. Low swappiness keeps it as a safety margin, not a default.
+#
+# 2026-09-26: rewritten after /swapfile was found on the running instance
+# present but inactive, with no fstab entry and swappiness back at the default
+# 60 -- the box had been running for months with none of this in effect, while
+# the comment above claimed otherwise. Three separate faults:
+#
+#   - `swapon` ran under `set -e` with nothing catching it, so a failure here
+#     aborted the whole bootstrap before Docker was installed. A memory
+#     optimisation must never be able to break the boot; hence the `|| echo`
+#     on the call below.
+#   - the `|| dd` fallback guarded `fallocate`, but fallocate is not what
+#     fails -- it succeeds and leaves a file with unwritten extents, which
+#     swapon then rejects on XFS (the AL2023 root filesystem). Using dd from
+#     the start removes the failure mode instead of trying to catch it.
+#   - the fstab line and the swappiness drop-in were written whether or not
+#     swapon had worked, and the whole block was skipped whenever /swapfile
+#     already existed. So a file that was never activated could never be
+#     repaired, and no boot after the first would bring swap back.
+#
+# The order is now create -> activate -> verify -> persist, and the guard is
+# "is swap active" rather than "does the file exist", so a half-finished state
+# heals on the next run instead of being skipped.
+setup_swap() {
+  if swapon --show=NAME --noheadings | grep -q .; then
+    echo "swap: already active, nothing to do"
+    return 0
+  fi
+
+  if [ ! -f /swapfile ]; then
+    dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none || return 1
+  fi
   chmod 600 /swapfile
-  mkswap /swapfile
-  swapon /swapfile
-  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  mkswap /swapfile >/dev/null || return 1
+  swapon /swapfile || return 1
+
+  # Verify rather than assume: this is precisely the step that silently did
+  # not happen, and every line below it is worthless if swap is not really on.
+  if ! swapon --show=NAME --noheadings | grep -q '^/swapfile$'; then
+    echo "swap: swapon returned success but /swapfile is not active" >&2
+    return 1
+  fi
+
+  # Persist only now that it is known to work. Idempotent so a re-run cannot
+  # stack duplicate fstab entries.
+  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
   echo 'vm.swappiness=10' > /etc/sysctl.d/99-swappiness.conf
   sysctl -w vm.swappiness=10
-fi
+  echo "swap: /swapfile active, swappiness 10, persisted to /etc/fstab"
+}
+
+# Never fatal. Running without swap costs headroom; losing the bootstrap costs
+# the instance.
+setup_swap || echo "swap: setup failed, continuing without swap" >&2
 
 # Remove the ECS container agent if present. ECS-optimized AMIs ship it
 # running, but this instance is managed via docker-compose (not ECS); the

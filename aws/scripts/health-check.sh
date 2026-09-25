@@ -81,8 +81,9 @@ Check the Yucale stack and post to Discord when something needs attention.
 Intended to run hourly from a systemd timer; safe to run by hand at any time.
 
 Reports on: container state and health, restarts since the last run, per-
-container memory against its limit, host memory, disk, end-to-end HTTP through
-nginx, and any heap dump or OutOfMemoryError left by the backend.
+container anonymous memory against its limit (page cache shown separately,
+not counted), host memory, disk, end-to-end HTTP through nginx, and any heap
+dump or OutOfMemoryError left by the backend.
 
 Findings go to DISCORD_WEBHOOK_URL; clean runs go to DISCORD_WEBHOOK_DEBUG_URL,
 both read from APP_DIR/.env. The channel follows the state of the service, not
@@ -112,8 +113,8 @@ EXAMPLES:
 ENVIRONMENT VARIABLES:
     APP_DIR             Application directory
     STATE_FILE          Where the previous run's state is kept
-    MEM_WARN_PCT        Container memory warning threshold (default 85)
-    MEM_CRIT_PCT        Container memory critical threshold (default 95)
+    MEM_WARN_PCT        Container anon-memory warning threshold (default 85)
+    MEM_CRIT_PCT        Container anon-memory critical threshold (default 95)
     DISK_WARN_PCT       Disk warning threshold (default 80)
     DISK_CRIT_PCT       Disk critical threshold (default 90)
     HOST_AVAIL_WARN_MB  Host available-memory warning floor in MB (default 100)
@@ -201,27 +202,112 @@ check_restarts() {
     done
 }
 
+to_mib() {
+    awk -v b="$1" 'BEGIN { printf "%.1fMiB", b / 1048576 }'
+}
+
+# Page cache is shown next to the footprint, never added to it -- a reader who
+# compares this report against `docker stats` needs to see where the difference
+# went. Anything under a MiB is noise and is left off.
+cache_suffix() {
+    [[ "$1" =~ ^[0-9]+$ ]] || return 0
+    [[ "$1" -lt 1048576 ]] && return 0
+    printf ' [+%s cache]' "$(to_mib "$1")"
+}
+
+# Where the kernel keeps a container's memory accounting. The systemd cgroup
+# driver is what Docker uses on AL2023; the cgroupfs layout is checked too so
+# this keeps working if the daemon is ever reconfigured. Empty means neither
+# was readable (cgroup v1, an unusual driver, or no root), and the caller falls
+# back to docker stats.
+container_cgroup_dir() {
+    local id=$1 dir
+    for dir in "/sys/fs/cgroup/system.slice/docker-$id.scope" \
+               "/sys/fs/cgroup/docker/$id"; do
+        if [[ -r "$dir/memory.stat" && -r "$dir/memory.max" ]]; then
+            echo "$dir"
+            return 0
+        fi
+    done
+    return 0
+}
+
+# Container memory, measured as anonymous memory rather than as what
+# `docker stats` prints.
+#
+# `docker stats` reports memory.current minus inactive_file, so a container's
+# ACTIVE page cache counts as usage. On 2026-09-25 that raised a WARN at 88%
+# for yucale_backend whose real footprint was 75%: of the 396 MiB reported,
+# 102 MiB was reclaimable file cache. Worse, the cache had appeared for a
+# reason that had nothing to do with the service -- the host moved from
+# t4g.micro to t4g.small, the kernel stopped having to evict cache on sight,
+# and every container's number rose overnight without a byte more being
+# allocated. nginx, which cannot grow, went up 61%.
+#
+# anon is what a container cannot hand back, and what the cgroup OOM killer
+# has to fit. Cache is context: under cgroup pressure the kernel reclaims it
+# instead of killing the container.
 check_memory() {
     log_step "Checking container memory..."
 
-    # One docker stats call for every container: it is slow enough per call to
-    # be worth batching.
-    local line name usage pct limit
-    while read -r line; do
-        name=$(echo "$line" | awk '{print $1}')
-        usage=$(echo "$line" | awk '{print $2}')
-        limit=$(echo "$line" | awk '{print $4}')
-        pct=$(echo "$line" | awk '{print $5}' | tr -d '%' | cut -d. -f1)
+    local name id dir anon file limit pct
+    for name in "${CONTAINERS[@]}"; do
+        id=$(docker inspect -f '{{.Id}}' "$name" 2>/dev/null || echo "")
+        [[ -z "$id" ]] && continue
 
-        [[ -z "$pct" ]] && continue
-        add_detail "$name: $usage / $limit (${pct}%)"
+        dir=$(container_cgroup_dir "$id")
+        if [[ -z "$dir" ]]; then
+            check_memory_via_docker_stats "$name"
+            continue
+        fi
+
+        anon=$(awk '$1 == "anon" { print $2; exit }' "$dir/memory.stat" 2>/dev/null)
+        file=$(awk '$1 == "file" { print $2; exit }' "$dir/memory.stat" 2>/dev/null)
+        limit=$(cat "$dir/memory.max" 2>/dev/null)
+
+        # As in check_host: an unparseable reading is reported as unknown, not
+        # as a breach. A monitor that cries wolf gets muted.
+        if [[ ! "$anon" =~ ^[0-9]+$ ]]; then
+            add_detail "$name: memory unknown"
+            continue
+        fi
+
+        # memory.max is the literal string "max" when the container runs
+        # uncapped, and then there is no percentage to threshold against.
+        if [[ ! "$limit" =~ ^[0-9]+$ ]]; then
+            add_detail "$name: $(to_mib "$anon"), no limit$(cache_suffix "$file")"
+            continue
+        fi
+
+        pct=$(( anon * 100 / limit ))
+        add_detail "$name: $(to_mib "$anon") / $(to_mib "$limit") (${pct}%)$(cache_suffix "$file")"
 
         if [[ "$pct" -ge "$MEM_CRIT_PCT" ]]; then
-            add_finding CRIT "memory" "$name at ${pct}% of its limit ($usage / $limit)"
+            add_finding CRIT "memory" "$name at ${pct}% of its limit ($(to_mib "$anon") / $(to_mib "$limit"))"
         elif [[ "$pct" -ge "$MEM_WARN_PCT" ]]; then
-            add_finding WARN "memory" "$name at ${pct}% of its limit ($usage / $limit)"
+            add_finding WARN "memory" "$name at ${pct}% of its limit ($(to_mib "$anon") / $(to_mib "$limit"))"
         fi
-    done < <(docker stats --no-stream --format '{{.Name}} {{.MemUsage}} {{.MemPerc}}' "${CONTAINERS[@]}" 2>/dev/null)
+    done
+}
+
+# Degraded path only, for a host whose cgroup files this script cannot read.
+# It carries the cache-inflation caveat described above, so the detail line
+# says which number it is.
+check_memory_via_docker_stats() {
+    local name=$1 line usage limit pct
+    line=$(docker stats --no-stream --format '{{.MemUsage}} {{.MemPerc}}' "$name" 2>/dev/null)
+    usage=$(echo "$line" | awk '{print $1}')
+    limit=$(echo "$line" | awk '{print $3}')
+    pct=$(echo "$line" | awk '{print $4}' | tr -d '%' | cut -d. -f1)
+
+    [[ "$pct" =~ ^[0-9]+$ ]] || { add_detail "$name: memory unknown"; return 0; }
+    add_detail "$name: $usage / $limit (${pct}%, incl. cache)"
+
+    if [[ "$pct" -ge "$MEM_CRIT_PCT" ]]; then
+        add_finding CRIT "memory" "$name at ${pct}% of its limit ($usage / $limit, incl. cache)"
+    elif [[ "$pct" -ge "$MEM_WARN_PCT" ]]; then
+        add_finding WARN "memory" "$name at ${pct}% of its limit ($usage / $limit, incl. cache)"
+    fi
 }
 
 check_host() {

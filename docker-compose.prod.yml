@@ -40,7 +40,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    # Memory limit for t4g.micro (1GB total)
+    # Memory limit. Sized for the old t4g.micro (1 GB); left as is on the
+    # t4g.small because the container sits at 39 MiB, under a third of it.
     deploy:
       resources:
         limits:
@@ -121,7 +122,22 @@ services:
           # A ceiling, not a reservation: measured usage of the other services
           # (nginx 4 MiB, frontend 68 MiB, db 37 MiB) is far below their limits,
           # so the 1 GB host still fits.
-          memory: 448M
+          #
+          # 2026-09-26: 448M -> 640M, after the host went t4g.micro -> t4g.small.
+          # Measured on the live container, anon is 337 MiB -- exactly the
+          # ceilings this file already grants (128m fully committed heap, ~97
+          # MiB metaspace, code cache, 27 thread stacks, JVM internals). So 448M
+          # never fit its own configuration: metaspace may still grow to its
+          # 192m cap, which puts anon alone near 429 MiB, and the cgroup would
+          # then SIGKILL the container before ExitOnOutOfMemoryError and
+          # HeapDumpOnOutOfMemoryError could fire -- silently undoing the
+          # 2026-09-01 fix. This raises the ceiling, not the consumption.
+          #
+          # The 88% that alerted on 2026-09-25 was not this: `docker stats`
+          # reports memory.current minus inactive_file, so it counts active page
+          # cache. 102 MiB of that reading was reclaimable file cache, which the
+          # 1 GB host used to evict on sight and the 2 GB host simply keeps.
+          memory: 640M
 
   frontend:
     image: ghcr.io/tknknk/yucale/frontend:latest
@@ -134,6 +150,14 @@ services:
     environment:
       TZ: ${TZ:-Asia/Tokyo}
       NODE_ENV: production
+      # V8 sizes its default old space from the HOST's memory, not from the
+      # cgroup limit: heap_size_limit measured 259 MB inside this container
+      # after the t4g.small resize (roughly half that on the 1 GB t4g.micro).
+      # Node therefore feels no pressure to collect until long past the point
+      # where the cgroup would SIGKILL it, which is why RSS climbed 55 -> 80 MiB
+      # in two days and kept going. Pin the ceiling so it follows this file
+      # instead of the instance type.
+      NODE_OPTIONS: "--max-old-space-size=96"
       # Next.js standalone binds to $HOSTNAME (Docker sets it to the container ID),
       # so it only listens on the container IP. Force 0.0.0.0 to listen on loopback too.
       HOSTNAME: 0.0.0.0
@@ -161,7 +185,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 96M
+          # 96M -> 192M, and only ever together with NODE_OPTIONS above:
+          # raising this alone would just hand V8 a bigger default heap and move
+          # the same problem up. Sized for the pinned 96m old space plus ~35 MiB
+          # of non-heap (binary, stacks, buffers).
+          memory: 192M
 
   # Nginx reverse proxy: single entry point.
   # CloudFront connects to the EC2 host on port 3000 (app_port); nginx routes
