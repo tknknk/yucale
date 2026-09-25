@@ -53,6 +53,11 @@ export default function ScheduleList({
   const isPastSchedule = (schedule: Schedule): boolean => {
     return isScheduleFinished(schedule, now);
   };
+  // 過去の予定が6の倍数（6,12,18...）かつ今後の予定が0件のとき、バックエンドの6nルール
+  // （ScheduleService#getSchedulesSplit）が過去を全件隠すため schedules が空になる。
+  // 隠れているだけで予定は存在するので、この場合は空メッセージではなく展開ボタンを出す。
+  // 2026-09-26: 「予定があるのに『まだ予定がありません』と出て過去に到達できない」不具合の修正。
+  const canLoadMorePast = hasMorePast && !!onLoadMorePast;
   // Initial loading state (no schedules yet)
   if (isLoading && schedules.length === 0) {
     return (
@@ -99,7 +104,7 @@ export default function ScheduleList({
       )}
 
       {/* Empty State */}
-      {schedules.length === 0 ? (
+      {schedules.length === 0 && !canLoadMorePast ? (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
           <svg
             className="w-12 h-12 mx-auto text-gray-400 mb-4"
@@ -140,7 +145,7 @@ export default function ScheduleList({
       ) : (
         <>
           {/* Load All Past Schedules Button (Top) */}
-          {hasMorePast && onLoadMorePast && (
+          {canLoadMorePast && (
             <div className="flex justify-center pb-4">
               <button
                 onClick={onLoadMorePast}

@@ -404,5 +404,45 @@ describe('ScheduleList', () => {
 
       expect(screen.getByText(/\(18件\)/)).toBeInTheDocument();
     });
+
+    // 過去の予定が6の倍数かつ今後の予定が0件だと、バックエンドの6nルールで過去が全件隠れ、
+    // schedules が空になる。以前はこのとき空メッセージだけが出て、過去の予定に到達できなかった。
+    it('should display load past button instead of empty message when all schedules are hidden past ones', () => {
+      const mockOnLoadMorePast = jest.fn();
+
+      renderWithAuth(
+        <ScheduleList
+          schedules={[]}
+          isLoading={false}
+          error={null}
+          emptyMessage="まだ予定がありません。最初の予定を作成してください。"
+          hasMorePast={true}
+          hiddenPastCount={6}
+          onLoadMorePast={mockOnLoadMorePast}
+        />
+      );
+
+      expect(screen.getByRole('button', { name: /過去の予定をすべて表示する \(6件\)/i })).toBeInTheDocument();
+      expect(
+        screen.queryByText('まだ予定がありません。最初の予定を作成してください。')
+      ).not.toBeInTheDocument();
+    });
+
+    it('should fall back to empty message when hidden past schedules cannot be loaded', () => {
+      renderWithAuth(
+        <ScheduleList
+          schedules={[]}
+          isLoading={false}
+          error={null}
+          emptyMessage="まだ予定がありません。最初の予定を作成してください。"
+          hasMorePast={true}
+          hiddenPastCount={6}
+        />
+      );
+
+      expect(
+        screen.getByText('まだ予定がありません。最初の予定を作成してください。')
+      ).toBeInTheDocument();
+    });
   });
 });
