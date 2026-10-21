@@ -1,0 +1,41 @@
+# 依存の更新監視 (2026-10-21 の依存監査で導入)。
+#
+# 導入の動機は個々のCVEではなく、Next.js 14 系が 14.2.35 で打ち止めになり
+# CRITICAL を含む未修正CVEを抱えたまま取り残されていたことに気付けなかった点。
+# 「サポートが切れた依存」は audit を回していないと静かに溜まる。
+#
+# open-pull-requests-limit を絞っているのは、npm の transitive が大量にあり
+# 既定の5本でもレビュー待ちが積むため。security update のPRはこの上限の対象外。
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # 本番バンドルに乗らないものは1本にまとめる
+      dev-dependencies:
+        dependency-type: development
+
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # ベースイメージ。Node 20 の EOL を見落としたのがここ
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
