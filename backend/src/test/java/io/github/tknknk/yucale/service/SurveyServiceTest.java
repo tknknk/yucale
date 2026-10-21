@@ -1,7 +1,7 @@
 package io.github.tknknk.yucale.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import io.github.tknknk.yucale.dto.*;
 import io.github.tknknk.yucale.entity.*;
 import io.github.tknknk.yucale.enums.Role;

@@ -29,7 +29,9 @@ spring:
         format_sql: true
 
   session:
-    store-type: jdbc
+    # store-type は Boot 4 で廃止された。クラスパスに
+    # spring-boot-starter-session-jdbc しか無いので JDBC ストアが自動選択される
+    # (2026-10-22 の Boot 4 移行)。残しても無視されるだけなので削除した。
     jdbc:
       initialize-schema: always
     timeout: 90d

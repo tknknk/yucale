@@ -1,6 +1,6 @@
 package io.github.tknknk.yucale.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import io.github.tknknk.yucale.dto.ApiResponse;
 import jakarta.servlet.http.HttpServletResponse;

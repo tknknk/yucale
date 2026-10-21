@@ -1,8 +1,8 @@
 package io.github.tknknk.yucale.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import io.github.tknknk.yucale.dto.*;
 import io.github.tknknk.yucale.entity.*;
@@ -524,7 +524,7 @@ public class SurveyService {
         }
         try {
             return objectMapper.writeValueAsString(options);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.error("Failed to serialize response options to JSON", e);
             return null;
         }
@@ -560,7 +560,7 @@ public class SurveyService {
         }
         try {
             return objectMapper.readValue(json, new TypeReference<List<ResponseOptionDto>>() {});
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.error("Failed to parse response options JSON", e);
             return List.of();
         }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-共有カレンダーWebアプリケーション。Next.js 14フロントエンドとSpring Boot 3.2バックエンドで構成。ICS形式でのカレンダー配信をサポート。
+共有カレンダーWebアプリケーション。Next.js 15フロントエンドとSpring Boot 4.1バックエンドで構成。ICS形式でのカレンダー配信をサポート。
 
 ## Development Commands
 
@@ -15,7 +15,7 @@ docker-compose up -d --build       # バックグラウンド起動
 docker-compose down -v             # 停止+データ削除
 ```
 
-### バックエンド (Java 21 / Spring Boot 3.2)
+### バックエンド (Java 21 / Spring Boot 4.1)
 ```bash
 cd backend
 ./mvnw spring-boot:run             # 開発サーバー起動
@@ -25,7 +25,7 @@ cd backend
 ./mvnw clean package -DskipTests   # ビルド
 ```
 
-### フロントエンド (Next.js 14 / TypeScript)
+### フロントエンド (Next.js 15 / TypeScript)
 ```bash
 cd frontend
 npm run dev                        # 開発サーバー (localhost:3000)
@@ -125,6 +125,6 @@ frontend/src/
 
 ## Testing Notes
 
-- バックエンド: JUnit 5 + Mockito, テスト用H2データベース
+- バックエンド: JUnit 5 + Mockito, テスト用H2データベース。Boot 4 のため Bean のモックは `@MockitoBean`（`@MockBean` は廃止）、JSON は Jackson 3（`tools.jackson.*`。アノテーションのみ `com.fasterxml.jackson.annotation` のまま）
 - フロントエンド: Jest + React Testing Library
 - エンティティ（User, CustomUserDetails）はSpring Session JDBC用に`Serializable`実装必須
