@@ -138,12 +138,14 @@ describe('AuthRequestList', () => {
 
       render(<AuthRequestList />);
 
+      // 待つ対象はモックの呼び出し回数ではなく描画結果。呼び出しは effect 内で
+      // すぐ起きるため、それを待っても state 反映前に assert が走ってしまう。
       await waitFor(() => {
-        expect(mockGetPendingRequests).toHaveBeenCalledTimes(1);
+        expect(screen.getByText('user1')).toBeInTheDocument();
       });
 
-      expect(screen.getByText('user1')).toBeInTheDocument();
       expect(screen.getByText('user2')).toBeInTheDocument();
+      expect(mockGetPendingRequests).toHaveBeenCalledTimes(1);
     });
 
     it('should fetch all requests when showAll is true', async () => {
@@ -152,13 +154,13 @@ describe('AuthRequestList', () => {
       render(<AuthRequestList showAll={true} />);
 
       await waitFor(() => {
-        expect(mockGetAllRequests).toHaveBeenCalledTimes(1);
+        expect(screen.getByText('user1')).toBeInTheDocument();
       });
 
-      expect(screen.getByText('user1')).toBeInTheDocument();
       expect(screen.getByText('user2')).toBeInTheDocument();
       expect(screen.getByText('user3')).toBeInTheDocument();
       expect(screen.getByText('user4')).toBeInTheDocument();
+      expect(mockGetAllRequests).toHaveBeenCalledTimes(1);
     });
 
     it('should display pending requests section title with count', async () => {

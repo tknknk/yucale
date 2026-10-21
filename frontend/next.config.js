@@ -82,7 +82,8 @@ if (isProd) {
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
-  swcMinify: true,
+  // swcMinify は Next 15 で削除された（SWC minify が唯一の実装になり常時有効）。
+  // 15 では未知のキーとして警告が出るだけなので、ここから落とす。
   async headers() {
     return [
       {

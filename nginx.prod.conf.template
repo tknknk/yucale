@@ -40,11 +40,12 @@ http {
 
     # WebSocket のアップグレードを「クライアントが実際に要求した時だけ」中継する。
     # 以前は location / で Connection "upgrade" を固定していたため、全リクエストが
-    # アップグレード要求としてNext.jsに渡っていた。Next 14 には WebSocket
-    # アップグレードを使うアプリでの SSRF (GHSA-c4j6-fc7j-m34r, CVSS 8.6) が
-    # 未修正のまま残っており、14系はもうパッチが出ない (2026-10-21 の依存監査)。
-    # 本番の Next は standalone で HMR も無く WebSocket を一切使わないので、
-    # 既定を close にして攻撃面を閉じる。
+    # アップグレード要求としてNext.jsに渡っていた。きっかけは Next 14 に未修正で
+    # 残っていた WebSocket アップグレード経由の SSRF (GHSA-c4j6-fc7j-m34r,
+    # CVSS 8.6)。Next 15 で当該CVEは解消済みだが、そもそも本番の Next は
+    # standalone で HMR も無く WebSocket を一切使わないので、要求されていない
+    # アップグレードを中継する理由がない。既定は close のままにする
+    # (2026-10-21 の依存監査 / Next 15 移行)。
     map $http_upgrade $connection_upgrade {
         default upgrade;
         ''      close;
@@ -89,11 +90,11 @@ http {
 
         # next/image は本アプリで一切使っていない (public/images は素の <img> で
         # 配信) が、output: 'standalone' の Next サーバは /_next/image を常に
-        # 公開する。Next 14 系は 14.2.35 で打ち止めで、画像最適化APIの
-        # RCE (GHSA-2xp9-vwfh-vxw4) を含む未修正CVEが残る。sharp 未導入かつ
-        # remotePatterns 未設定なので現時点で実行経路は見つかっていないが、
-        # 使っていない攻撃面なので塞いでおく (2026-10-21 の依存監査)。
-        # Next を 15/16 に上げたら、この block は外して構わない。
+        # 公開する。元々は Next 14 に未修正で残っていた画像最適化APIの
+        # RCE (GHSA-2xp9-vwfh-vxw4) への緩和だった。Next 15.5.28 でその CVE 自体は
+        # 解消済みだが、使っていないエンドポイントを開けておく理由もないので
+        # 予防的に残している (2026-10-21 の依存監査 / Next 15 移行)。
+        # next/image を使い始めたら、この block を外すこと。
         location /_next/image {
             return 404;
         }
