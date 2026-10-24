@@ -15,7 +15,7 @@
     "@fontsource/zen-maru-gothic": "^5.2.8",
     "axios": "^1.20.0",
     "date-fns": "^3.3.1",
-    "next": "15.5.28",
+    "next": "16.4.2",
     "react": "^19.3.1",
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.3.1",
