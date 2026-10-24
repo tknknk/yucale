@@ -1,7 +1,7 @@
 # Node 20 は 2026-04 にメンテナンス期間を終えており、ベースイメージの
 # OSパッケージにも Node 本体にもセキュリティ修正が入らない (2026-10-21 の
 # 依存監査)。22 は 2027-04 まで Maintenance LTS。
-FROM node:22-alpine AS builder
+FROM node:25-alpine AS builder
 WORKDIR /app
 
 # Build arguments for NEXT_PUBLIC_ environment variables
@@ -25,7 +25,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:22-alpine
+FROM node:25-alpine
 WORKDIR /app
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
