@@ -1,6 +1,6 @@
 # Node 20 は 2026-04 にメンテナンス終了。ランタイム側 (Dockerfile) と
 # 揃えておかないとテストが通る版と出荷される版が食い違う。
-FROM node:22-alpine
+FROM node:25-alpine
 WORKDIR /app
 COPY package*.json ./
 # lockfile どおりに入れる (理由は frontend/Dockerfile のコメント参照)
