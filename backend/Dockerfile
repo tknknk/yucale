@@ -1,5 +1,5 @@
 # Stage 1: Download dependencies (cached unless pom.xml changes)
-FROM eclipse-temurin:21-jdk AS deps
+FROM eclipse-temurin:24-jdk AS deps
 WORKDIR /app
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
@@ -9,14 +9,14 @@ RUN mkdir -p src/main/java && \
     ./mvnw dependency:resolve dependency:resolve-plugins -B
 
 # Stage 2: Build application
-FROM eclipse-temurin:21-jdk AS builder
+FROM eclipse-temurin:24-jdk AS builder
 WORKDIR /app
 COPY --from=deps /root/.m2 /root/.m2
 COPY . .
 RUN chmod +x mvnw && ./mvnw clean package -DskipTests
 
 # Stage 3: Runtime
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:24-jre
 WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8080
